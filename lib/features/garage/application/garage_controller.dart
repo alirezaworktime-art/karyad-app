@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../catalog/domain/catalog.dart';
-import '../data/garage_repository.dart';
+import '../data/garagerepository.dart';
 import '../domain/maintenance_planner.dart';
 import '../domain/vehicle.dart';
 
@@ -9,18 +9,16 @@ import '../domain/vehicle.dart';
 /// each change and notifies listeners. Screens never touch storage directly.
 class GarageController extends ChangeNotifier {
   GarageController({
-    required GarageRepository repository,
+    required this.repository,
     required this.catalog,
     DateTime Function()? clock,
-    MaintenancePlanner planner = const MaintenancePlanner(),
-  }) : _repository = repository,
-       _clock = clock ?? DateTime.now,
-       _planner = planner;
+    this.planner = const MaintenancePlanner(),
+  }) : _clock = clock ?? DateTime.now;
 
-  final GarageRepository _repository;
+  final GarageRepository repository;
   final Catalog catalog;
+  final MaintenancePlanner planner;
   final DateTime Function() _clock;
-  final MaintenancePlanner _planner;
 
   GarageData _data = const GarageData();
   bool _loaded = false;
@@ -33,7 +31,7 @@ class GarageController extends ChangeNotifier {
   DateTime get now => _clock();
 
   Future<void> load() async {
-    _data = await _repository.load();
+    _data = await repository.load();
     _loaded = true;
     notifyListeners();
   }
@@ -41,7 +39,7 @@ class GarageController extends ChangeNotifier {
   Future<void> _commit(GarageData next) async {
     _data = next;
     notifyListeners();
-    await _repository.save(next);
+    await repository.save(next);
   }
 
   String _newId(String prefix) =>
@@ -123,7 +121,7 @@ class GarageController extends ChangeNotifier {
   List<MaintenanceDue> duesFor(Vehicle vehicle) {
     final group = catalog.groupForModel(vehicle.modelId);
     if (group == null) return const [];
-    return _planner.plan(
+    return planner.plan(
       vehicle: vehicle,
       group: group,
       records: _data.records,

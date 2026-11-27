@@ -1,4 +1,3 @@
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../features/garage/application/garage_controller.dart';

@@ -9,8 +9,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_localizations:
-    sdk: flutter
   material_ui: ^1.1.0
   shared_preferences: ^2.5.0
   shamsi_date: ^1.1.1
