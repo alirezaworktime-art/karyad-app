@@ -60,8 +60,9 @@ class Vehicle {
     this.nickname,
     this.severeConditions = false,
   }) : assert(readings.isNotEmpty, 'a vehicle starts with one reading'),
-       readings = List.unmodifiable(
-         [...readings]..sort((a, b) => a.date.compareTo(b.date)),
+       readings = List<OdometerReading>.unmodifiable(
+         List<OdometerReading>.of(readings)
+           ..sort((x, y) => x.date.compareTo(y.date)),
        );
 
   final String id;

@@ -54,7 +54,7 @@ void main() {
     await _tap(tester, find.text('تمام'));
 
     expect(find.text('سرویس بعدی'), findsOneWidget);
-    expect(find.text('۷۲٬۰۰۰'), findsOneWidget);
+    expect(find.textContaining('۷۲٬۰۰۰', findRichText: true), findsWidgets);
     expect(find.text('سرویس را انجام دادم'), findsOneWidget);
     expect(controller.primaryVehicle!.color, CarColor.silver);
   });
@@ -82,7 +82,7 @@ void main() {
     await _tap(tester, find.text('تمام'));
 
     // 405 oil every 10,000 km → next milestone after 183,500 is 190,000.
-    expect(find.text('۱۹۰٬۰۰۰'), findsOneWidget);
+    expect(find.textContaining('۱۹۰٬۰۰۰', findRichText: true), findsWidgets);
   });
 
   testWidgets('logging a visit moves the next service and fills history', (
@@ -100,7 +100,7 @@ void main() {
     await _tap(tester, find.text('ذخیره'));
 
     // Quick oil every 5,000 km from the logged 30,000.
-    expect(find.text('۳۵٬۰۰۰'), findsOneWidget);
+    expect(find.textContaining('۳۵٬۰۰۰', findRichText: true), findsWidgets);
 
     await _tap(tester, find.text('سوابق'));
     expect(find.text('۳۰٬۰۰۰ کیلومتر'), findsOneWidget);

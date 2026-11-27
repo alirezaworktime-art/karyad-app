@@ -128,17 +128,23 @@ class _WelcomeStep extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              'تعویض روغن بعدی',
-                              style: text.bodySmall?.copyWith(
-                                color: BrandColors.muted,
+                            Flexible(
+                              child: Text(
+                                'تعویض روغن بعدی',
+                                overflow: TextOverflow.ellipsis,
+                                style: text.bodySmall?.copyWith(
+                                  color: BrandColors.muted,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 10),
-                            Text(
-                              'در ۷۲٬۰۰۰',
-                              style: text.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
+                            Flexible(
+                              child: Text(
+                                'در ۷۲٬۰۰۰',
+                                overflow: TextOverflow.ellipsis,
+                                style: text.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                             ),
                           ],
