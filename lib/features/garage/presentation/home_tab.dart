@@ -94,16 +94,14 @@ class HomeTab extends StatelessWidget {
                 const SizedBox(height: 24),
                 Text(
                   'بعدی‌ها',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'اگر یکی را قبلاً عوض کرده‌ای، رویش بزن تا ثبت شود.',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: BrandColors.muted),
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: BrandColors.muted),
                 ),
                 const SizedBox(height: 8),
                 Card(
@@ -133,9 +131,8 @@ class HomeTab extends StatelessWidget {
                   child: Text(
                     'زمان‌ها طبق ${group.sourceFa}'
                     '${vehicle.usesSevereSchedule ? ' (شرایط سخت)' : ''}.',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: BrandColors.muted),
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: BrandColors.muted),
                   ),
                 ),
             ],
@@ -400,7 +397,8 @@ class _NextVisitCard extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                for (final d in visit.items) Chip(label: Text(partName(d.partId))),
+                for (final d in visit.items)
+                  Chip(label: Text(partName(d.partId))),
               ],
             ),
             if (lead.intervalKm != null) ...[

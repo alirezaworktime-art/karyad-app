@@ -136,9 +136,8 @@ class GarageController extends ChangeNotifier {
     VehicleUsage? usage,
     OilType? oilType,
   }) async {
-    final updated = _vehicle(
-      vehicleId,
-    ).copyWith(color: color, usage: usage, oilType: oilType);
+    final updated = _vehicle(vehicleId)
+        .copyWith(color: color, usage: usage, oilType: oilType);
     await _commit(_data.copyWith(vehicles: _replace(updated)));
   }
 
@@ -192,7 +191,10 @@ class GarageController extends ChangeNotifier {
           )
         : _data.vehicles;
     await _commit(
-      _data.copyWith(records: [..._data.records, ...records], vehicles: vehicles),
+      _data.copyWith(
+        records: [..._data.records, ...records],
+        vehicles: vehicles,
+      ),
     );
   }
 

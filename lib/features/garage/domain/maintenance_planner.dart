@@ -67,9 +67,8 @@ class ServiceVisit {
   /// The earliest date among the items, if any has one.
   final DateTime? dueDate;
 
-  DueStatus get status => items
-      .map((d) => d.status)
-      .reduce((a, b) => a.index <= b.index ? a : b);
+  DueStatus get status =>
+      items.map((d) => d.status).reduce((a, b) => a.index <= b.index ? a : b);
 }
 
 class MaintenancePlan {
@@ -243,7 +242,8 @@ class MaintenancePlanner {
   DueStatus _status(int odometer, DateTime now, int? dueKm, DateTime? due) {
     final kmLeft = dueKm == null ? null : dueKm - odometer;
     final daysLeft = due == null ? null : daysBetween(now, due);
-    if ((kmLeft != null && kmLeft <= 0) || (daysLeft != null && daysLeft <= 0)) {
+    if ((kmLeft != null && kmLeft <= 0) ||
+        (daysLeft != null && daysLeft <= 0)) {
       return DueStatus.overdue;
     }
     if ((kmLeft != null && kmLeft <= dueSoonKm) ||
@@ -264,9 +264,11 @@ class MaintenancePlanner {
   ) {
     final byStatus = a.status.index.compareTo(b.status.index);
     if (byStatus != 0) return byStatus;
-    return _urgencyDays(a, vehicle, now).compareTo(
-      _urgencyDays(b, vehicle, now),
-    );
+    return _urgencyDays(
+      a,
+      vehicle,
+      now,
+    ).compareTo(_urgencyDays(b, vehicle, now));
   }
 
   double _urgencyDays(MaintenanceDue d, Vehicle vehicle, DateTime now) {

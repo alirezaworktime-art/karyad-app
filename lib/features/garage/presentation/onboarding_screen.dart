@@ -161,7 +161,10 @@ class _WelcomeStep extends StatelessWidget {
                   style: text.bodyLarge?.copyWith(color: BrandColors.muted),
                 ),
                 const Spacer(),
-                FilledButton(onPressed: onStart, child: const Text('شروع کنیم')),
+                FilledButton(
+                  onPressed: onStart,
+                  child: const Text('شروع کنیم'),
+                ),
                 const SizedBox(height: 10),
                 Text(
                   'کمتر از یک دقیقه · بدون ثبت‌نام و شماره تلفن',
@@ -414,8 +417,7 @@ class _DetailsStepState extends State<_DetailsStep> {
     if (!_noSticker && sticker == null) {
       stickerError = 'عدد برچسب را بنویس یا «برچسب ندارم» را بزن';
     } else if (sticker != null && km != null && sticker <= km) {
-      stickerError =
-          'این عدد از کیلومترشمار کمتر است؛ یعنی وقت تعویض روغن گذشته. «برچسب ندارم» را بزن.';
+      stickerError = 'این عدد از کیلومترشمار کمتر است؛ یعنی وقت تعویض روغن گذشته. «برچسب ندارم» را بزن.';
     }
     if (kmError != null || stickerError != null) {
       setState(() {

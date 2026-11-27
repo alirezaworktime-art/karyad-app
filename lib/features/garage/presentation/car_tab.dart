@@ -30,7 +30,9 @@ class CarTab extends StatelessWidget {
             children: [
               Text(
                 'ماشین من',
-                style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                style: text.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(height: 16),
               Container(

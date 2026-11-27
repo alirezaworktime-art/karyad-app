@@ -153,8 +153,7 @@ void main() {
   });
 
   group('schedules', () {
-    test('work use takes severe intervals, falling back to normal months',
-        () {
+    test('work use takes severe intervals, falling back to normal months', () {
       final v = _car(usage: VehicleUsage.work);
       final belt = MaintenancePlanner.effectiveInterval(_belt, v)!;
       expect(belt.km, 40000);

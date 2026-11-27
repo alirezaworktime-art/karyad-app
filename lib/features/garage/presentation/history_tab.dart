@@ -30,7 +30,9 @@ class HistoryTab extends StatelessWidget {
             children: [
               Text(
                 'سوابق سرویس',
-                style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                style: text.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
@@ -133,10 +135,9 @@ class HistoryTab extends StatelessWidget {
                               Icons.delete_outline,
                               color: BrandColors.muted,
                             ),
-                            onPressed: () =>
-                                _confirmDelete(context, () {
-                                  controller.deleteVisit(visit.id);
-                                }),
+                            onPressed: () => _confirmDelete(context, () {
+                              controller.deleteVisit(visit.id);
+                            }),
                           ),
                         ],
                       ),
