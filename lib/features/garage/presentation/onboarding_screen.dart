@@ -739,9 +739,11 @@ class _HistoryStepState extends State<_HistoryStep> {
       }
     }
     if (errors.isNotEmpty) {
-      setState(() => _errors
-        ..clear()
-        ..addAll(errors));
+      setState(
+        () => _errors
+          ..clear()
+          ..addAll(errors),
+      );
       return;
     }
     widget.onFinish(values);
@@ -793,8 +795,8 @@ class _HistoryStepState extends State<_HistoryStep> {
                       if (_errors.remove(item.partId) != null) setState(() {});
                     },
                     decoration: InputDecoration(
-                      labelText: catalog.part(item.partId)?.nameFa ??
-                          item.partId,
+                      labelText:
+                          catalog.part(item.partId)?.nameFa ?? item.partId,
                       hintText: 'نمی‌دانم',
                       suffixText: 'کیلومتر',
                       errorText: _errors[item.partId],
@@ -809,8 +811,9 @@ class _HistoryStepState extends State<_HistoryStep> {
               ),
               const SizedBox(height: 6),
               TextButton(
-                onPressed:
-                    widget.saving ? null : () => widget.onFinish(const {}),
+                onPressed: widget.saving
+                    ? null
+                    : () => widget.onFinish(const {}),
                 child: const Text('هیچ‌کدام یادم نیست، رد شو'),
               ),
             ],
