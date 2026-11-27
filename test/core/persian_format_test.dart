@@ -33,4 +33,15 @@ void main() {
     expect(PersianFormat.daysFromNow(3), '۳ روز دیگر');
     expect(PersianFormat.daysFromNow(-5), '۵ روز پیش');
   });
+
+  test('formats month and year', () {
+    expect(PersianFormat.monthYear(DateTime(2026, 11, 27)), 'آذر ۱۴۰۵');
+  });
+
+  test('rounds durations to friendly units', () {
+    expect(PersianFormat.roughDuration(0), '۱ روز');
+    expect(PersianFormat.roughDuration(10), '۱۰ روز');
+    expect(PersianFormat.roughDuration(21), '۳ هفته');
+    expect(PersianFormat.roughDuration(120), '۴ ماه');
+  });
 }

@@ -28,110 +28,126 @@ void main() {
     expect(controller.isOnboarded, isFalse);
   });
 
-  test('adding a vehicle onboards and persists it', () async {
+  test('the oil sticker sets the next oil change exactly', () async {
     await controller.addVehicle(
+      modelId: 'dena-plus',
+      usage: VehicleUsage.personal,
+      currentKm: 62400,
+      nextOilChangeKm: 72000,
+    );
+    final plan = controller.planFor(controller.primaryVehicle!)!;
+    final oil = plan.all.firstWhere((d) => d.partId == 'engine_oil');
+    expect(oil.dueKm, 72000);
+    // The sticker is not a visit the user made, so history stays empty.
+    expect(controller.visitsFor(controller.primaryVehicle!.id), isEmpty);
+  });
+
+  test('without a sticker oil follows the factory milestones', () async {
+    await controller.addVehicle(
+      modelId: 'dena-plus',
+      usage: VehicleUsage.personal,
+      currentKm: 62400,
+    );
+    final plan = controller.planFor(controller.primaryVehicle!)!;
+    expect(plan.all.firstWhere((d) => d.partId == 'engine_oil').dueKm, 70000);
+  });
+
+  test('a visit saves every ticked item and moves the odometer', () async {
+    final car = await controller.addVehicle(
       modelId: 'quick',
       usage: VehicleUsage.personal,
-      oilType: OilType.fullSynthetic,
       currentKm: 30000,
-      averageDailyKm: 40,
     );
-    expect(controller.isOnboarded, isTrue);
-    final saved = await repository.load();
-    expect(saved.vehicles.single.modelId, 'quick');
+    now = now.add(const Duration(days: 40));
+    await controller.recordVisit(
+      vehicleId: car.id,
+      km: 31800,
+      partIds: ['engine_oil', 'air_filter'],
+      costRial: 24000000,
+    );
+    final vehicle = controller.primaryVehicle!;
+    expect(vehicle.lastReading.km, 31800);
+    final visits = controller.visitsFor(car.id);
+    expect(visits.single.partIds, ['engine_oil', 'air_filter']);
+    expect(visits.single.costRial, 24000000);
+    final oil = controller
+        .planFor(vehicle)!
+        .all
+        .firstWhere((d) => d.partId == 'engine_oil');
+    expect(oil.dueKm, 31800 + 5000);
   });
 
-  test(
-    'recording a service resets that item and advances the odometer',
-    () async {
-      final car = await controller.addVehicle(
-        modelId: 'dena',
-        usage: VehicleUsage.personal,
-        oilType: OilType.fullSynthetic,
-        currentKm: 50000,
-        averageDailyKm: 50,
-      );
-      now = now.add(const Duration(days: 30));
-      await controller.recordService(
-        vehicleId: car.id,
-        partId: 'engine_oil',
-        km: 51600,
-      );
-      final vehicle = controller.primaryVehicle!;
-      expect(vehicle.lastReading.km, 51600);
-      final oil = controller
-          .duesFor(vehicle)
-          .firstWhere((d) => d.item.partId == 'engine_oil');
-      expect(oil.hasServiceRecord, isTrue);
-      expect(oil.dueKm, 61600);
-    },
-  );
-
-  test('odometer update replaces the estimate', () async {
+  test('readings only move forward and go stale after two weeks', () async {
     final car = await controller.addVehicle(
       modelId: 'tiba',
-      usage: VehicleUsage.work,
-      oilType: OilType.fullSynthetic,
+      usage: VehicleUsage.personal,
       currentKm: 100000,
-      averageDailyKm: 150,
     );
-    now = now.add(const Duration(days: 10));
-    expect(controller.estimatedOdometer(controller.primaryVehicle!), 101500);
-    await controller.updateOdometer(car.id, 101200);
-    expect(controller.estimatedOdometer(controller.primaryVehicle!), 101200);
+    expect(controller.readingIsStale(controller.primaryVehicle!), isFalse);
+    now = now.add(const Duration(days: 15));
+    expect(controller.readingIsStale(controller.primaryVehicle!), isTrue);
+    await controller.addReading(car.id, 99000);
+    expect(controller.primaryVehicle!.lastReading.km, 100000);
+    await controller.addReading(car.id, 100700);
+    expect(controller.primaryVehicle!.lastReading.km, 100700);
+    expect(controller.readingIsStale(controller.primaryVehicle!), isFalse);
   });
 
-  test('preferences repository round-trips the garage', () async {
+  test('work cars ask for the odometer weekly', () async {
+    await controller.addVehicle(
+      modelId: 'tiba',
+      usage: VehicleUsage.work,
+      currentKm: 100000,
+    );
+    now = now.add(const Duration(days: 8));
+    expect(controller.readingIsStale(controller.primaryVehicle!), isTrue);
+  });
+
+  test('deleting a visit removes it from history', () async {
+    final car = await controller.addVehicle(
+      modelId: 'quick',
+      usage: VehicleUsage.personal,
+      currentKm: 30000,
+    );
+    await controller.recordVisit(
+      vehicleId: car.id,
+      km: 30000,
+      partIds: ['spark_plugs'],
+    );
+    final visit = controller.visitsFor(car.id).single;
+    await controller.deleteVisit(visit.id);
+    expect(controller.visitsFor(car.id), isEmpty);
+  });
+
+  test('data round-trips through JSON, including color', () async {
     await controller.addVehicle(
       modelId: 'shahin',
       usage: VehicleUsage.work,
-      oilType: OilType.semiSynthetic,
       currentKm: 12000,
-      averageDailyKm: 200,
+      oilType: OilType.semiSynthetic,
+      color: CarColor.silver,
     );
     final saved = await repository.load();
     final decoded = GarageData.fromJson(
       jsonDecode(jsonEncode(saved.toJson())) as Map<String, Object?>,
     );
-    expect(decoded.vehicles.single.oilType, OilType.semiSynthetic);
-    expect(decoded.vehicles.single.usage, VehicleUsage.work);
+    final v = decoded.vehicles.single;
+    expect(v.color, CarColor.silver);
+    expect(v.oilType, OilType.semiSynthetic);
+    expect(v.readings.single.km, 12000);
   });
 
-  test('seeds engine-oil history from the last oil change km', () async {
-    await controller.addVehicle(
-      modelId: 'pride-131',
-      usage: VehicleUsage.personal,
-      oilType: OilType.fullSynthetic,
-      currentKm: 80000,
-      averageDailyKm: 40,
-      lastOilChangeKm: 78000,
-    );
-    final vehicle = controller.primaryVehicle!;
-    final oil = controller
-        .duesFor(vehicle)
-        .firstWhere((d) => d.item.partId == 'engine_oil');
-    expect(oil.hasServiceRecord, isTrue);
-    expect(oil.lastDoneKm, 78000);
-    // 2,000 km at 40 km/day is about 50 days ago.
-    expect(oil.lastDoneDate, now.subtract(const Duration(days: 50)));
-  });
-
-  test('count-from-today turns an unknown item into a tracked one', () async {
-    final car = await controller.addVehicle(
-      modelId: 'quick',
-      usage: VehicleUsage.personal,
-      oilType: OilType.fullSynthetic,
-      currentKm: 30000,
-      averageDailyKm: 40,
-    );
-    await controller.startTrackingFromNow(
-      vehicleId: car.id,
-      partId: 'air_filter',
-    );
-    final air = controller
-        .duesFor(controller.primaryVehicle!)
-        .firstWhere((d) => d.item.partId == 'air_filter');
-    expect(air.hasServiceRecord, isTrue);
-    expect(controller.historyFor(car.id).single.estimated, isTrue);
+  test('reads data saved by version 0.1', () {
+    final legacy = Vehicle.fromJson({
+      'id': 'old',
+      'modelId': 'dena',
+      'usage': 'personal',
+      'oilType': 'fullSynthetic',
+      'averageDailyKm': 40,
+      'trackingStart': {'km': 62000, 'date': '2026-11-01T00:00:00.000'},
+      'lastReading': {'km': 62000, 'date': '2026-11-01T00:00:00.000'},
+    });
+    expect(legacy.lastReading.km, 62000);
+    expect(legacy.color, CarColor.white);
   });
 }

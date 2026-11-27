@@ -2,90 +2,128 @@ import '../../catalog/domain/catalog.dart';
 import 'vehicle.dart';
 
 /// Ordered by how much it needs the user's attention.
-enum DueStatus {
-  overdue,
-  dueSoon,
+enum DueStatus { overdue, dueSoon, ok }
 
-  /// Never logged, and the time since the car was added does not yet prove
-  /// it is due. The app asks the user when it was last done.
-  unknown,
-  ok,
+/// Where the countdown for an item starts.
+enum DueBasis {
+  /// The user logged this item (or gave the oil sticker).
+  record,
+
+  /// Nothing logged: km follow the factory schedule from 0 (for an
+  /// 80,000 km belt on a 62,000 km car, the next one is at 80,000), and
+  /// time counts from the day the car was added.
+  factorySchedule,
 }
 
-/// One upcoming maintenance task for a vehicle, with how close it is.
+/// One maintenance item and when it is next due, as absolute values the
+/// user can compare with the dashboard and the calendar.
 class MaintenanceDue {
   const MaintenanceDue({
     required this.item,
+    required this.basis,
     required this.intervalKm,
     required this.intervalMonths,
-    required this.lastDoneKm,
-    required this.lastDoneDate,
-    required this.hasServiceRecord,
+    required this.periodStartKm,
     required this.dueKm,
     required this.dueDate,
-    required this.remainingKm,
-    required this.remainingDays,
     required this.status,
-    required this.urgency,
   });
 
   final MaintenanceItem item;
+  final DueBasis basis;
   final int? intervalKm;
   final int? intervalMonths;
-  final int lastDoneKm;
-  final DateTime lastDoneDate;
 
-  /// False when the countdown starts from when the car was added, because
-  /// the user has not logged this item yet.
-  final bool hasServiceRecord;
+  /// Odometer at the start of the current period (last done, or the last
+  /// factory milestone). Used for the progress bar.
+  final int periodStartKm;
+
+  /// Due at this odometer value…
   final int? dueKm;
+
+  /// …or on this date, whichever comes first.
   final DateTime? dueDate;
-  final int? remainingKm;
-  final int? remainingDays;
   final DueStatus status;
 
-  /// Share of the interval already used, by whichever limit is closer
-  /// (1.0 = due now). Used for sorting.
-  final double urgency;
+  String get partId => item.partId;
+
+  /// Share of the km period used at [odometerKm], 0..1.
+  double kmProgress(int odometerKm) {
+    final interval = intervalKm;
+    if (interval == null || interval <= 0) return 0;
+    return ((odometerKm - periodStartKm) / interval).clamp(0.0, 1.0);
+  }
 }
 
-/// Turns a vehicle, the catalog and the service history into a sorted list
-/// of what is due. Pure and deterministic: [now] is passed in.
+/// Items that are done together at one workshop visit.
+class ServiceVisit {
+  const ServiceVisit({required this.items, required this.dueKm, this.dueDate});
+
+  final List<MaintenanceDue> items;
+
+  /// The earliest km target among the items, if any has one.
+  final int? dueKm;
+
+  /// The earliest date among the items, if any has one.
+  final DateTime? dueDate;
+
+  DueStatus get status => items
+      .map((d) => d.status)
+      .reduce((a, b) => a.index <= b.index ? a : b);
+}
+
+class MaintenancePlan {
+  const MaintenancePlan({
+    required this.odometerKm,
+    required this.nextVisit,
+    required this.later,
+  });
+
+  /// The last odometer value the user entered. Never an estimate.
+  final int odometerKm;
+
+  /// What to do at the next workshop visit; null if nothing is scheduled.
+  final ServiceVisit? nextVisit;
+
+  /// Everything else, soonest first.
+  final List<MaintenanceDue> later;
+
+  List<MaintenanceDue> get all => [...?nextVisit?.items, ...later];
+}
+
+/// Turns a vehicle, the catalog and the service history into absolute
+/// due km and dates. Pure and deterministic: [now] is passed in.
 class MaintenancePlanner {
   const MaintenancePlanner({
     this.dueSoonKm = 1000,
-    this.dueSoonShare = 0.1,
-    this.dueSoonDays = 14,
+    this.dueSoonDays = 30,
+    this.visitWindowKm = 2000,
+    this.visitWindowDays = 45,
   });
 
-  /// An item is "due soon" within this many km, or within [dueSoonShare] of
-  /// its interval if that is larger.
+  /// "Due soon" within this many km of the target, or this many days.
   final int dueSoonKm;
-  final double dueSoonShare;
   final int dueSoonDays;
+
+  /// Items due within this distance or time of the first one join it in
+  /// the same visit, as a mechanic would do them together.
+  final int visitWindowKm;
+  final int visitWindowDays;
 
   static const engineOilPartId = 'engine_oil';
 
-  /// Odometer estimate: last confirmed reading plus average daily driving
-  /// since then. Never goes below the last reading.
-  static int estimateOdometer(Vehicle vehicle, DateTime now) {
-    final days = now.difference(vehicle.lastReading.date).inDays;
-    if (days <= 0) return vehicle.lastReading.km;
-    return vehicle.lastReading.km + days * vehicle.averageDailyKm;
-  }
-
-  /// The interval that applies to this vehicle, or null if the item has
-  /// none (inspect-only items such as a timing chain).
+  /// The interval that applies to this vehicle, or null for inspect-only
+  /// items with no interval (such as a timing chain).
   static ({int? km, int? months})? effectiveInterval(
     MaintenanceItem item,
     Vehicle vehicle,
   ) {
+    final isOil = item.partId == engineOilPartId;
     // Non-synthetic oil degrades faster, so the oil change follows the
     // severe interval even on an otherwise normal schedule.
     final severe =
         vehicle.usesSevereSchedule ||
-        (item.partId == engineOilPartId &&
-            vehicle.oilType != OilType.fullSynthetic);
+        (isOil && vehicle.oilType != OilType.fullSynthetic);
     final primary = severe ? item.severe : item.normal;
     final fallback = severe ? item.normal : item.severe;
     var km = primary?.km ?? fallback?.km;
@@ -93,24 +131,26 @@ class MaintenancePlanner {
     if (km == null && months == null) return null;
 
     final oilCap = vehicle.oilType.maxKm;
-    if (item.partId == engineOilPartId && oilCap != null) {
+    if (isOil && oilCap != null) {
       km = km == null ? oilCap : (km < oilCap ? km : oilCap);
     }
     return (km: km, months: months);
   }
 
-  List<MaintenanceDue> plan({
+  MaintenancePlan plan({
     required Vehicle vehicle,
     required VehicleGroup group,
     required List<ServiceRecord> records,
     required DateTime now,
   }) {
-    final currentKm = estimateOdometer(vehicle, now);
+    final odometer = vehicle.lastReading.km;
     final latestByPart = <String, ServiceRecord>{};
     for (final record in records) {
       if (record.vehicleId != vehicle.id) continue;
       final existing = latestByPart[record.partId];
-      if (existing == null || record.km > existing.km) {
+      if (existing == null ||
+          record.km > existing.km ||
+          (record.km == existing.km && record.date.isAfter(existing.date))) {
         latestByPart[record.partId] = record;
       }
     }
@@ -119,87 +159,144 @@ class MaintenancePlanner {
     for (final item in group.items) {
       final interval = effectiveInterval(item, vehicle);
       if (interval == null) continue;
-
       final last = latestByPart[item.partId];
-      final lastKm = last?.km ?? vehicle.trackingStart.km;
-      final lastDate = last?.date ?? vehicle.trackingStart.date;
 
-      final dueKm = interval.km == null ? null : lastKm + interval.km!;
+      final int periodStartKm;
+      final int? dueKm;
+      if (interval.km == null) {
+        periodStartKm = last?.km ?? odometer;
+        dueKm = null;
+      } else if (last != null) {
+        periodStartKm = last.km;
+        dueKm = last.km + interval.km!;
+      } else {
+        // Next factory milestone strictly above the odometer.
+        final step = interval.km!;
+        periodStartKm = (odometer ~/ step) * step;
+        dueKm = periodStartKm + step;
+      }
+
+      final start = last?.date ?? vehicle.firstReading.date;
       final dueDate = interval.months == null
           ? null
-          : _addMonths(lastDate, interval.months!);
-      final remainingKm = dueKm == null ? null : dueKm - currentKm;
-      final remainingDays = dueDate == null ? null : _daysBetween(now, dueDate);
-
-      final kmShare = interval.km == null
-          ? 0.0
-          : (currentKm - lastKm) / interval.km!;
-      final dayShare = interval.months == null
-          ? 0.0
-          : _daysBetween(lastDate, now) /
-                _daysBetween(lastDate, dueDate!).clamp(1, 1 << 30);
-      final urgency = kmShare > dayShare ? kmShare : dayShare;
+          : addMonths(start, interval.months!);
 
       dues.add(
         MaintenanceDue(
           item: item,
+          basis: last == null ? DueBasis.factorySchedule : DueBasis.record,
           intervalKm: interval.km,
           intervalMonths: interval.months,
-          lastDoneKm: lastKm,
-          lastDoneDate: lastDate,
-          hasServiceRecord: last != null,
+          periodStartKm: periodStartKm,
           dueKm: dueKm,
           dueDate: dueDate,
-          remainingKm: remainingKm,
-          remainingDays: remainingDays,
-          status: _statusFor(
-            hasRecord: last != null,
-            intervalKm: interval.km,
-            remainingKm: remainingKm,
-            remainingDays: remainingDays,
-          ),
-          urgency: urgency,
+          status: _status(odometer, now, dueKm, dueDate),
         ),
       );
     }
 
-    dues.sort((a, b) {
-      final byStatus = a.status.index.compareTo(b.status.index);
-      return byStatus != 0 ? byStatus : b.urgency.compareTo(a.urgency);
-    });
-    return dues;
+    dues.sort((a, b) => _compare(a, b, vehicle, now));
+    if (dues.isEmpty) {
+      return MaintenancePlan(odometerKm: odometer, nextVisit: null, later: []);
+    }
+
+    final first = dues.first;
+    final inVisit = <MaintenanceDue>[];
+    final later = <MaintenanceDue>[];
+    for (final due in dues) {
+      if (identical(due, first) || _sameVisit(first, due)) {
+        inVisit.add(due);
+      } else {
+        later.add(due);
+      }
+    }
+    return MaintenancePlan(
+      odometerKm: odometer,
+      nextVisit: ServiceVisit(
+        items: inVisit,
+        dueKm: _minInt(inVisit.map((d) => d.dueKm)),
+        dueDate: _minDate(inVisit.map((d) => d.dueDate)),
+      ),
+      later: later,
+    );
   }
 
-  /// Without a record, counting from the day the car was added only proves
-  /// something when it is already due; otherwise the honest answer is
-  /// "unknown" rather than a reassuring "ok".
-  DueStatus _statusFor({
-    required bool hasRecord,
-    required int? intervalKm,
-    required int? remainingKm,
-    required int? remainingDays,
-  }) {
-    final status = _status(intervalKm, remainingKm, remainingDays);
-    if (!hasRecord && status == DueStatus.ok) return DueStatus.unknown;
-    return status;
+  bool _sameVisit(MaintenanceDue first, MaintenanceDue other) {
+    final firstKm = first.dueKm;
+    final otherKm = other.dueKm;
+    if (firstKm != null &&
+        otherKm != null &&
+        (otherKm - firstKm).abs() <= visitWindowKm) {
+      return true;
+    }
+    final firstDate = first.dueDate;
+    final otherDate = other.dueDate;
+    if (firstKm == null &&
+        firstDate != null &&
+        otherDate != null &&
+        otherDate.difference(firstDate).inDays.abs() <= visitWindowDays) {
+      return true;
+    }
+    return false;
   }
 
-  DueStatus _status(int? intervalKm, int? remainingKm, int? remainingDays) {
-    if ((remainingKm != null && remainingKm <= 0) ||
-        (remainingDays != null && remainingDays <= 0)) {
+  DueStatus _status(int odometer, DateTime now, int? dueKm, DateTime? due) {
+    final kmLeft = dueKm == null ? null : dueKm - odometer;
+    final daysLeft = due == null ? null : daysBetween(now, due);
+    if ((kmLeft != null && kmLeft <= 0) || (daysLeft != null && daysLeft <= 0)) {
       return DueStatus.overdue;
     }
-    final kmWindow = intervalKm == null
-        ? dueSoonKm
-        : (intervalKm * dueSoonShare).round().clamp(dueSoonKm, 1 << 30);
-    if ((remainingKm != null && remainingKm <= kmWindow) ||
-        (remainingDays != null && remainingDays <= dueSoonDays)) {
+    if ((kmLeft != null && kmLeft <= dueSoonKm) ||
+        (daysLeft != null && daysLeft <= dueSoonDays)) {
       return DueStatus.dueSoon;
     }
     return DueStatus.ok;
   }
 
-  static int _daysBetween(DateTime from, DateTime to) => DateTime.utc(
+  /// Most urgent first: by status, then by how soon the earlier of the two
+  /// limits arrives. Km are converted to days with the learned pace when
+  /// known, otherwise compared as km.
+  int _compare(
+    MaintenanceDue a,
+    MaintenanceDue b,
+    Vehicle vehicle,
+    DateTime now,
+  ) {
+    final byStatus = a.status.index.compareTo(b.status.index);
+    if (byStatus != 0) return byStatus;
+    return _urgencyDays(a, vehicle, now).compareTo(
+      _urgencyDays(b, vehicle, now),
+    );
+  }
+
+  double _urgencyDays(MaintenanceDue d, Vehicle vehicle, DateTime now) {
+    final pace = vehicle.learnedDailyKm ?? 40;
+    final kmDays = d.dueKm == null
+        ? double.infinity
+        : (d.dueKm! - vehicle.lastReading.km) / pace;
+    final dateDays = d.dueDate == null
+        ? double.infinity
+        : daysBetween(now, d.dueDate!).toDouble();
+    return kmDays < dateDays ? kmDays : dateDays;
+  }
+
+  static int? _minInt(Iterable<int?> values) {
+    int? min;
+    for (final v in values) {
+      if (v != null && (min == null || v < min)) min = v;
+    }
+    return min;
+  }
+
+  static DateTime? _minDate(Iterable<DateTime?> values) {
+    DateTime? min;
+    for (final v in values) {
+      if (v != null && (min == null || v.isBefore(min))) min = v;
+    }
+    return min;
+  }
+
+  static int daysBetween(DateTime from, DateTime to) => DateTime.utc(
     to.year,
     to.month,
     to.day,
@@ -207,7 +304,7 @@ class MaintenancePlanner {
 
   /// Calendar month arithmetic that clamps the day (31 Jan + 1 month =
   /// 28/29 Feb), so intervals never skip a month.
-  static DateTime _addMonths(DateTime date, int months) {
+  static DateTime addMonths(DateTime date, int months) {
     final totalMonths = date.month - 1 + months;
     final year = date.year + totalMonths ~/ 12;
     final month = totalMonths % 12 + 1;

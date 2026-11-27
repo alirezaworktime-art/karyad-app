@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../features/garage/application/garage_controller.dart';
-import '../features/garage/presentation/home_screen.dart';
+import '../features/garage/presentation/home_shell.dart';
 import '../features/garage/presentation/onboarding_screen.dart';
 import 'theme.dart';
 
@@ -16,7 +16,8 @@ class KaryadApp extends StatelessWidget {
       title: 'کاریاد',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      // One clear light theme for now; a matching dark theme comes later.
+      themeMode: ThemeMode.light,
       locale: const Locale('fa', 'IR'),
       supportedLocales: const [Locale('fa', 'IR')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
@@ -29,7 +30,7 @@ class KaryadApp extends StatelessWidget {
             );
           }
           return controller.isOnboarded
-              ? HomeScreen(controller: controller)
+              ? HomeShell(controller: controller)
               : OnboardingScreen(controller: controller);
         },
       ),

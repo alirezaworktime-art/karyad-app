@@ -2,16 +2,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:karyad/app/app.dart';
 import 'package:karyad/features/garage/application/garage_controller.dart';
 import 'package:karyad/features/garage/data/garage_repository.dart';
-import 'package:karyad/features/garage/domain/maintenance_planner.dart';
+import 'package:karyad/features/garage/domain/vehicle.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'helpers/catalog_fixture.dart';
 
 Future<GarageController> _pumpApp(WidgetTester tester) async {
-  // A phone-width, extra-tall screen so whole forms are laid out at once.
+  // A phone-width, extra-tall screen so whole screens are laid out at once.
   tester.view.devicePixelRatio = 3;
-  tester.view.physicalSize = const Size(400 * 3, 1600 * 3);
+  tester.view.physicalSize = const Size(400 * 3, 1800 * 3);
   addTearDown(tester.view.reset);
+
   final controller = GarageController(
     repository: InMemoryGarageRepository(),
     catalog: loadCatalog(),
@@ -23,95 +24,94 @@ Future<GarageController> _pumpApp(WidgetTester tester) async {
   return controller;
 }
 
-Future<void> _tapText(WidgetTester tester, String text) async {
-  final finder = find.text(text).first;
-  await tester.ensureVisible(finder);
+Future<void> _tap(WidgetTester tester, Finder finder) async {
+  await tester.ensureVisible(finder.first);
   await tester.pumpAndSettle();
-  await tester.tap(finder);
+  await tester.tap(finder.first);
   await tester.pumpAndSettle();
 }
 
-/// Taps a model in the picker list (not the search box, which may contain
-/// the same text).
-Future<void> _tapModel(WidgetTester tester, String name) async {
-  final finder = find.widgetWithText(ListTile, name).first;
-  await tester.ensureVisible(finder);
+Future<void> _pickModel(WidgetTester tester, String search, String name) async {
+  await tester.enterText(find.byKey(const Key('model-search')), search);
   await tester.pumpAndSettle();
-  await tester.tap(finder);
-  await tester.pumpAndSettle();
+  await _tap(tester, find.widgetWithText(ListTile, name));
 }
 
 void main() {
-  testWidgets('onboarding with a remembered oil change reaches home', (
+  testWidgets('welcome → model → sticker → home shows the sticker km', (
     tester,
   ) async {
     final controller = await _pumpApp(tester);
 
-    expect(find.text('با ماشینت چه کار می‌کنی؟'), findsOneWidget);
-    await _tapText(tester, 'ماشین شخصی');
+    expect(find.text('سرویس ماشینت دیگر یادت نمی‌رود'), findsOneWidget);
+    await _tap(tester, find.text('شروع کنیم'));
 
-    await tester.enterText(find.byKey(const Key('model-search')), 'کوییک');
-    await tester.pumpAndSettle();
-    await _tapModel(tester, 'کوییک');
+    await _pickModel(tester, 'دنا', 'دنا پلاس');
 
-    await tester.enterText(find.byKey(const Key('current-km')), '۳۰٬۰۰۰');
-    await tester.enterText(find.byKey(const Key('last-oil-km')), '28000');
-    await _tapText(tester, 'شروع');
+    await tester.enterText(find.byKey(const Key('current-km')), '۶۲٬۴۰۰');
+    await tester.enterText(find.byKey(const Key('sticker-km')), '72000');
+    await _tap(tester, find.bySemanticsLabel('نقره‌ای'));
+    await _tap(tester, find.text('تمام'));
 
     expect(find.text('سرویس بعدی'), findsOneWidget);
-    expect(find.text('روغن موتور و فیلتر روغن'), findsWidgets);
-    expect(find.text('آخرین بار کی انجام شد؟'), findsOneWidget);
-
-    final oil = controller
-        .duesFor(controller.primaryVehicle!)
-        .firstWhere((d) => d.item.partId == 'engine_oil');
-    expect(oil.lastDoneKm, 28000);
-    expect(oil.status, DueStatus.ok);
+    expect(find.text('۷۲٬۰۰۰'), findsOneWidget);
+    expect(find.text('سرویس را انجام دادم'), findsOneWidget);
+    expect(controller.primaryVehicle!.color, CarColor.silver);
   });
 
-  testWidgets('validates odometer and oil answers before starting', (
-    tester,
-  ) async {
+  testWidgets('validates the odometer and the sticker', (tester) async {
     final controller = await _pumpApp(tester);
+    await _tap(tester, find.text('شروع کنیم'));
+    await _pickModel(tester, 'پراید', 'پراید ۱۳۱');
+    await _tap(tester, find.text('تمام'));
 
-    await _tapText(tester, 'با ماشینم کار می‌کنم');
-    await tester.enterText(find.byKey(const Key('model-search')), 'دنا');
-    await tester.pumpAndSettle();
-    await _tapModel(tester, 'دنا');
-    await _tapText(tester, 'شروع');
-
-    expect(find.text('کیلومتر فعلی ماشین را وارد کنید'), findsOneWidget);
+    expect(find.text('عدد کیلومترشمار را بنویس'), findsOneWidget);
     expect(
-      find.text('کیلومتر آخرین تعویض را بنویس یا «یادم نیست» را بزن'),
+      find.text('عدد برچسب را بنویس یا «برچسب ندارم» را بزن'),
       findsOneWidget,
     );
     expect(controller.isOnboarded, isFalse);
   });
 
-  testWidgets('"I don\'t remember" lets onboarding finish without oil km', (
+  testWidgets('no sticker: oil follows the factory milestone', (tester) async {
+    await _pumpApp(tester);
+    await _tap(tester, find.text('شروع کنیم'));
+    await _pickModel(tester, '405', 'پژو ۴۰۵');
+    await tester.enterText(find.byKey(const Key('current-km')), '183500');
+    await _tap(tester, find.text('برچسب ندارم'));
+    await _tap(tester, find.text('تمام'));
+
+    // 405 oil every 10,000 km → next milestone after 183,500 is 190,000.
+    expect(find.text('۱۹۰٬۰۰۰'), findsOneWidget);
+  });
+
+  testWidgets('logging a visit moves the next service and fills history', (
     tester,
   ) async {
-    final controller = await _pumpApp(tester);
+    await _pumpApp(tester);
+    await _tap(tester, find.text('شروع کنیم'));
+    await _pickModel(tester, 'کوییک', 'کوییک');
+    await tester.enterText(find.byKey(const Key('current-km')), '30000');
+    await _tap(tester, find.text('برچسب ندارم'));
+    await _tap(tester, find.text('تمام'));
 
-    await _tapText(tester, 'ماشین شخصی');
-    await tester.enterText(find.byKey(const Key('model-search')), 'پراید');
-    await tester.pumpAndSettle();
-    await _tapModel(tester, 'پراید ۱۳۱');
-    await tester.enterText(find.byKey(const Key('current-km')), '150000');
-    await _tapText(tester, 'یادم نیست');
-    await _tapText(tester, 'شروع');
+    await _tap(tester, find.text('سرویس را انجام دادم'));
+    await tester.enterText(find.byKey(const Key('visit-km')), '30000');
+    await _tap(tester, find.text('ذخیره'));
 
-    expect(controller.isOnboarded, isTrue);
-    expect(find.text('آخرین بار کی انجام شد؟'), findsOneWidget);
+    // Quick oil every 5,000 km from the logged 30,000.
+    expect(find.text('۳۵٬۰۰۰'), findsOneWidget);
+
+    await _tap(tester, find.text('سوابق'));
+    expect(find.text('۳۰٬۰۰۰ کیلومتر'), findsOneWidget);
   });
 
   testWidgets('model search folds Arabic letters and handles no results', (
     tester,
   ) async {
     await _pumpApp(tester);
-    await _tapText(tester, 'ماشین شخصی');
+    await _tap(tester, find.text('شروع کنیم'));
 
-    // Arabic kaf (ك) and yeh (ي) still find «کوییک».
     await tester.enterText(find.byKey(const Key('model-search')), 'كوييك');
     await tester.pumpAndSettle();
     expect(find.widgetWithText(ListTile, 'کوییک'), findsOneWidget);

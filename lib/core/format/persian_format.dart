@@ -74,6 +74,19 @@ abstract final class PersianFormat {
         '${digits('${jalali.year}')}';
   }
 
+  /// Month and year only, for far-off dates: "مهر ۱۴۰۶".
+  static String monthYear(DateTime value) {
+    final jalali = Jalali.fromDateTime(value);
+    return '${_monthNames[jalali.month - 1]} ${digits('${jalali.year}')}';
+  }
+
+  /// A rough, friendly duration: "۵ روز", "۳ هفته", "۴ ماه".
+  static String roughDuration(int days) {
+    if (days < 14) return '${number(days < 1 ? 1 : days)} روز';
+    if (days < 60) return '${number((days / 7).round())} هفته';
+    return '${number((days / 30).round())} ماه';
+  }
+
   /// Relative day count for reminders: "امروز", "۳ روز دیگر", "۵ روز پیش".
   static String daysFromNow(int days) {
     if (days == 0) return 'امروز';

@@ -49,7 +49,7 @@ class GarageData {
 /// Persists [GarageData] on the device. The interface lets the storage
 /// engine change later (for example to SQLite) without touching the UI.
 abstract interface class GarageRepository {
-  static const dataVersion = 1;
+  static const dataVersion = 2;
 
   Future<GarageData> load();
   Future<void> save(GarageData data);

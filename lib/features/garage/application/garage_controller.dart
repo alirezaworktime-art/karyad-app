@@ -5,6 +5,23 @@ import '../data/garage_repository.dart';
 import '../domain/maintenance_planner.dart';
 import '../domain/vehicle.dart';
 
+/// One workshop visit in the history: everything saved together.
+class VisitSummary {
+  const VisitSummary({
+    required this.id,
+    required this.date,
+    required this.km,
+    required this.partIds,
+    required this.costRial,
+  });
+
+  final String id;
+  final DateTime date;
+  final int km;
+  final List<String> partIds;
+  final int? costRial;
+}
+
 /// App state for the garage: loads once, applies user actions, saves after
 /// each change and notifies listeners. Screens never touch storage directly.
 class GarageController extends ChangeNotifier {
@@ -22,6 +39,7 @@ class GarageController extends ChangeNotifier {
 
   GarageData _data = const GarageData();
   bool _loaded = false;
+  int _idCounter = 0;
 
   bool get isLoaded => _loaded;
   bool get isOnboarded => _data.onboarded && _data.vehicles.isNotEmpty;
@@ -42,47 +60,57 @@ class GarageController extends ChangeNotifier {
     await repository.save(next);
   }
 
-  String _newId(String prefix) =>
-      '$prefix-${_clock().microsecondsSinceEpoch.toRadixString(36)}';
+  String _newId(String prefix) {
+    _idCounter += 1;
+    return '$prefix-${_clock().microsecondsSinceEpoch.toRadixString(36)}'
+        '-$_idCounter';
+  }
 
-  /// Adds a car. [lastOilChangeKm], when the user remembers it, seeds the
-  /// engine-oil history; its date is estimated from average daily km.
+  Vehicle _vehicle(String id) => _data.vehicles.firstWhere((v) => v.id == id);
+
+  List<Vehicle> _replace(Vehicle updated) => [
+    for (final v in _data.vehicles) v.id == updated.id ? updated : v,
+  ];
+
+  /// Adds a car. [nextOilChangeKm] is the number on the oil-change sticker:
+  /// the engine-oil countdown then ends exactly there.
   Future<Vehicle> addVehicle({
     required String modelId,
     required VehicleUsage usage,
-    required OilType oilType,
     required int currentKm,
-    required int averageDailyKm,
-    int? lastOilChangeKm,
-    bool severeConditions = false,
+    OilType oilType = OilType.fullSynthetic,
+    CarColor color = CarColor.white,
+    int? nextOilChangeKm,
   }) async {
-    final reading = OdometerReading(km: currentKm, date: _clock());
+    final now = _clock();
     final vehicle = Vehicle(
       id: _newId('car'),
       modelId: modelId,
       usage: usage,
       oilType: oilType,
-      averageDailyKm: averageDailyKm,
-      trackingStart: reading,
-      lastReading: reading,
-      severeConditions: severeConditions,
+      color: color,
+      readings: [OdometerReading(km: currentKm, date: now)],
     );
+
     final seeded = <ServiceRecord>[];
-    if (lastOilChangeKm != null && lastOilChangeKm <= currentKm) {
-      final daysAgo = averageDailyKm <= 0
-          ? 0
-          : (currentKm - lastOilChangeKm) ~/ averageDailyKm;
+    final oilItem = _oilItem(modelId);
+    final oilKm = oilItem == null
+        ? null
+        : MaintenancePlanner.effectiveInterval(oilItem, vehicle)?.km;
+    if (nextOilChangeKm != null && oilKm != null) {
+      final lastChange = nextOilChangeKm - oilKm;
       seeded.add(
         ServiceRecord(
           id: _newId('svc'),
           vehicleId: vehicle.id,
           partId: MaintenancePlanner.engineOilPartId,
-          km: lastOilChangeKm,
-          date: reading.date.subtract(Duration(days: daysAgo)),
+          km: lastChange < 0 ? 0 : lastChange,
+          date: now,
           estimated: true,
         ),
       );
     }
+
     await _commit(
       _data.copyWith(
         onboarded: true,
@@ -93,86 +121,98 @@ class GarageController extends ChangeNotifier {
     return vehicle;
   }
 
-  /// For an item whose history the user does not remember: start counting
-  /// from the current odometer and today.
-  Future<void> startTrackingFromNow({
-    required String vehicleId,
-    required String partId,
+  MaintenanceItem? _oilItem(String modelId) {
+    final group = catalog.groupForModel(modelId);
+    if (group == null) return null;
+    for (final item in group.items) {
+      if (item.partId == MaintenancePlanner.engineOilPartId) return item;
+    }
+    return null;
+  }
+
+  Future<void> updateVehicle(
+    String vehicleId, {
+    CarColor? color,
+    VehicleUsage? usage,
+    OilType? oilType,
   }) async {
-    final vehicle = _data.vehicles.firstWhere((v) => v.id == vehicleId);
-    final record = ServiceRecord(
-      id: _newId('svc'),
-      vehicleId: vehicleId,
-      partId: partId,
-      km: estimatedOdometer(vehicle),
-      date: _clock(),
-      estimated: true,
-    );
-    await _commit(_data.copyWith(records: [..._data.records, record]));
+    final updated = _vehicle(
+      vehicleId,
+    ).copyWith(color: color, usage: usage, oilType: oilType);
+    await _commit(_data.copyWith(vehicles: _replace(updated)));
   }
 
-  Future<void> updateOdometer(String vehicleId, int km) async {
-    final reading = OdometerReading(km: km, date: _clock());
-    await _commit(
-      _data.copyWith(
-        vehicles: [
-          for (final v in _data.vehicles)
-            v.id == vehicleId ? v.copyWith(lastReading: reading) : v,
-        ],
-      ),
+  /// Adds what the dashboard shows now. Values below the last reading are
+  /// rejected by the UI; here they are ignored so data stays consistent.
+  Future<void> addReading(String vehicleId, int km) async {
+    final vehicle = _vehicle(vehicleId);
+    if (km < vehicle.lastReading.km) return;
+    final updated = vehicle.copyWith(
+      readings: [
+        ...vehicle.readings,
+        OdometerReading(km: km, date: _clock()),
+      ],
     );
+    await _commit(_data.copyWith(vehicles: _replace(updated)));
   }
 
-  /// Logs a completed task. If the odometer given is past the last
-  /// confirmed reading, it also becomes the new reading. A km below today's
-  /// estimate is a past service: without an explicit [date], its date is
-  /// estimated from average daily km and the record is marked estimated.
-  Future<void> recordService({
+  /// Saves one workshop visit: every ticked item at the same km and date.
+  /// A km above the last reading also becomes the new odometer reading.
+  Future<void> recordVisit({
     required String vehicleId,
-    required String partId,
     required int km,
+    required List<String> partIds,
     DateTime? date,
     int? costRial,
   }) async {
-    final vehicle = _data.vehicles.firstWhere((v) => v.id == vehicleId);
-    final now = _clock();
-    final kmBehind = estimatedOdometer(vehicle) - km;
-    final isPast = date == null && kmBehind > 0 && vehicle.averageDailyKm > 0;
-    final when =
-        date ??
-        (isPast
-            ? now.subtract(Duration(days: kmBehind ~/ vehicle.averageDailyKm))
-            : now);
-    final record = ServiceRecord(
-      id: _newId('svc'),
-      vehicleId: vehicleId,
-      partId: partId,
-      km: km,
-      date: when,
-      costRial: costRial,
-      estimated: isPast && kmBehind ~/ vehicle.averageDailyKm > 0,
+    if (partIds.isEmpty) return;
+    final when = date ?? _clock();
+    final visitId = _newId('visit');
+    final records = [
+      for (var i = 0; i < partIds.length; i++)
+        ServiceRecord(
+          id: _newId('svc'),
+          vehicleId: vehicleId,
+          partId: partIds[i],
+          km: km,
+          date: when,
+          visitId: visitId,
+          costRial: i == 0 ? costRial : null,
+        ),
+    ];
+    final vehicle = _vehicle(vehicleId);
+    final vehicles = km > vehicle.lastReading.km
+        ? _replace(
+            vehicle.copyWith(
+              readings: [
+                ...vehicle.readings,
+                OdometerReading(km: km, date: _clock()),
+              ],
+            ),
+          )
+        : _data.vehicles;
+    await _commit(
+      _data.copyWith(records: [..._data.records, ...records], vehicles: vehicles),
     );
+  }
+
+  Future<void> deleteVisit(String visitId) async {
     await _commit(
       _data.copyWith(
-        records: [..._data.records, record],
-        vehicles: [
-          for (final v in _data.vehicles)
-            v.id == vehicleId && km > v.lastReading.km
-                ? v.copyWith(
-                    lastReading: OdometerReading(km: km, date: now),
-                  )
-                : v,
+        records: [
+          for (final r in _data.records)
+            if (r.visitId != visitId) r,
         ],
       ),
     );
   }
 
-  int estimatedOdometer(Vehicle vehicle) =>
-      MaintenancePlanner.estimateOdometer(vehicle, _clock());
+  /// Wipes everything on this device.
+  Future<void> resetAll() => _commit(const GarageData());
 
-  List<MaintenanceDue> duesFor(Vehicle vehicle) {
+  MaintenancePlan? planFor(Vehicle vehicle) {
     final group = catalog.groupForModel(vehicle.modelId);
-    if (group == null) return const [];
+    if (group == null) return null;
     return planner.plan(
       vehicle: vehicle,
       group: group,
@@ -181,11 +221,37 @@ class GarageController extends ChangeNotifier {
     );
   }
 
-  List<ServiceRecord> historyFor(String vehicleId) {
-    final list = [
-      for (final r in _data.records)
-        if (r.vehicleId == vehicleId) r,
+  /// True when the last odometer value is old enough that reminders by km
+  /// may be off: two weeks for personal cars, one week for work cars.
+  bool readingIsStale(Vehicle vehicle) {
+    final days = MaintenancePlanner.daysBetween(
+      vehicle.lastReading.date,
+      _clock(),
+    );
+    return days >= (vehicle.usage == VehicleUsage.work ? 7 : 14);
+  }
+
+  /// Logged visits, newest first. Records from onboarding (the oil sticker)
+  /// are not visits and are left out.
+  List<VisitSummary> visitsFor(String vehicleId) {
+    final byVisit = <String, List<ServiceRecord>>{};
+    for (final r in _data.records) {
+      if (r.vehicleId != vehicleId || r.estimated) continue;
+      byVisit.putIfAbsent(r.visitId ?? r.id, () => []).add(r);
+    }
+    final visits = [
+      for (final entry in byVisit.entries)
+        VisitSummary(
+          id: entry.key,
+          date: entry.value.first.date,
+          km: entry.value.first.km,
+          partIds: [for (final r in entry.value) r.partId],
+          costRial: entry.value
+              .map((r) => r.costRial)
+              .whereType<int>()
+              .fold<int?>(null, (sum, c) => (sum ?? 0) + c),
+        ),
     ]..sort((a, b) => b.date.compareTo(a.date));
-    return list;
+    return visits;
   }
 }

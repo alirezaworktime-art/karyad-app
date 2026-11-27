@@ -11,12 +11,26 @@ const _oil = MaintenanceItem(
   severe: ServiceInterval(km: 5000, months: 6),
 );
 
+const _air = MaintenanceItem(
+  partId: 'air_filter',
+  action: MaintenanceAction.replace,
+  confidence: Confidence.official,
+  normal: ServiceInterval(km: 10000),
+);
+
 const _belt = MaintenanceItem(
   partId: 'timing_belt',
   action: MaintenanceAction.replace,
   confidence: Confidence.official,
-  normal: ServiceInterval(km: 60000, months: 72),
+  normal: ServiceInterval(km: 80000, months: 36),
   severe: ServiceInterval(km: 40000),
+);
+
+const _brakeFluid = MaintenanceItem(
+  partId: 'brake_fluid',
+  action: MaintenanceAction.replace,
+  confidence: Confidence.official,
+  normal: ServiceInterval(months: 24),
 );
 
 const _chain = MaintenanceItem(
@@ -26,221 +40,209 @@ const _chain = MaintenanceItem(
 );
 
 const _group = VehicleGroup(
-  id: 'test-group',
-  makerId: 'saipa',
-  models: [VehicleModel(id: 'car', nameFa: 'خودرو', groupId: 'test-group')],
+  id: 'g',
+  makerId: 'ikco',
+  models: [VehicleModel(id: 'car', nameFa: 'خودرو', groupId: 'g')],
   confidence: Confidence.official,
   sourceFa: 'test',
-  items: [_oil, _belt, _chain],
+  items: [_oil, _air, _belt, _brakeFluid, _chain],
 );
 
-final _start = DateTime(2026, 1, 1);
+final _added = DateTime(2026, 1, 1);
 
-Vehicle _vehicle({
+Vehicle _car({
+  int km = 62000,
   VehicleUsage usage = VehicleUsage.personal,
   OilType oil = OilType.fullSynthetic,
-  int dailyKm = 50,
-  int startKm = 20000,
-  bool severe = false,
+  List<OdometerReading>? readings,
 }) => Vehicle(
   id: 'v1',
   modelId: 'car',
   usage: usage,
   oilType: oil,
-  averageDailyKm: dailyKm,
-  trackingStart: OdometerReading(km: startKm, date: _start),
-  lastReading: OdometerReading(km: startKm, date: _start),
-  severeConditions: severe,
+  readings: readings ?? [OdometerReading(km: km, date: _added)],
 );
 
-MaintenanceDue _dueFor(List<MaintenanceDue> dues, String partId) =>
-    dues.firstWhere((d) => d.item.partId == partId);
+ServiceRecord _done(String part, int km, DateTime date) => ServiceRecord(
+  id: '$part-$km',
+  vehicleId: 'v1',
+  partId: part,
+  km: km,
+  date: date,
+);
+
+MaintenanceDue _due(MaintenancePlan plan, String part) =>
+    plan.all.firstWhere((d) => d.partId == part);
 
 void main() {
   const planner = MaintenancePlanner();
 
-  group('estimateOdometer', () {
-    test('adds average daily km since the last reading', () {
-      final v = _vehicle(dailyKm: 40);
-      expect(
-        MaintenancePlanner.estimateOdometer(
-          v,
-          _start.add(const Duration(days: 10)),
-        ),
-        20400,
-      );
-    });
-
-    test('never goes below the last reading', () {
-      final v = _vehicle();
-      expect(
-        MaintenancePlanner.estimateOdometer(
-          v,
-          _start.subtract(const Duration(days: 3)),
-        ),
-        20000,
-      );
-    });
-  });
-
-  group('effectiveInterval', () {
-    test('uses normal intervals for personal use with synthetic oil', () {
-      final i = MaintenancePlanner.effectiveInterval(_oil, _vehicle())!;
-      expect(i.km, 10000);
-      expect(i.months, 12);
-    });
-
-    test('uses severe intervals for work use', () {
-      final v = _vehicle(usage: VehicleUsage.work);
-      expect(MaintenancePlanner.effectiveInterval(_oil, v)!.km, 5000);
-      expect(MaintenancePlanner.effectiveInterval(_belt, v)!.km, 40000);
-    });
-
-    test('falls back to normal months when severe lists only km', () {
-      final v = _vehicle(usage: VehicleUsage.work);
-      expect(MaintenancePlanner.effectiveInterval(_belt, v)!.months, 72);
-    });
-
-    test('non-synthetic oil shortens only the oil change', () {
-      final v = _vehicle(oil: OilType.semiSynthetic);
-      expect(MaintenancePlanner.effectiveInterval(_oil, v)!.km, 5000);
-      expect(MaintenancePlanner.effectiveInterval(_belt, v)!.km, 60000);
-    });
-
-    test('oil type caps the oil interval', () {
-      const longOil = MaintenanceItem(
-        partId: 'engine_oil',
-        action: MaintenanceAction.replace,
-        confidence: Confidence.official,
-        normal: ServiceInterval(km: 10000),
-        severe: ServiceInterval(km: 8000),
-      );
-      final v = _vehicle(oil: OilType.mineral);
-      expect(MaintenancePlanner.effectiveInterval(longOil, v)!.km, 5000);
-    });
-
-    test('returns null for inspect-only items without an interval', () {
-      expect(MaintenancePlanner.effectiveInterval(_chain, _vehicle()), isNull);
-    });
-  });
-
-  group('plan', () {
-    test('counts from tracking start when nothing is logged', () {
-      final now = _start.add(const Duration(days: 100));
-      final dues = planner.plan(
-        vehicle: _vehicle(dailyKm: 50),
+  group('absolute targets without history', () {
+    test('km items follow the factory schedule to the next milestone', () {
+      final plan = planner.plan(
+        vehicle: _car(km: 62000),
         group: _group,
         records: const [],
-        now: now,
+        now: _added,
       );
-      final oil = _dueFor(dues, 'engine_oil');
-      expect(oil.hasServiceRecord, isFalse);
-      expect(oil.dueKm, 30000);
-      expect(oil.remainingKm, 30000 - 25000);
-      // Not logged and not yet provably due: unknown, not a reassuring ok.
-      expect(oil.status, DueStatus.unknown);
+      expect(_due(plan, 'timing_belt').dueKm, 80000);
+      expect(_due(plan, 'timing_belt').basis, DueBasis.factorySchedule);
+      expect(_due(plan, 'air_filter').dueKm, 70000);
+      expect(_due(plan, 'engine_oil').dueKm, 70000);
     });
 
-    test('a logged item that is not due is ok', () {
-      final dues = planner.plan(
-        vehicle: _vehicle(),
+    test('a car exactly on a milestone gets the next one', () {
+      final plan = planner.plan(
+        vehicle: _car(km: 80000),
+        group: _group,
+        records: const [],
+        now: _added,
+      );
+      expect(_due(plan, 'timing_belt').dueKm, 160000);
+    });
+
+    test('time limits count from the day the car was added', () {
+      final plan = planner.plan(
+        vehicle: _car(),
+        group: _group,
+        records: const [],
+        now: _added,
+      );
+      expect(_due(plan, 'brake_fluid').dueDate, DateTime(2028, 1, 1));
+      expect(_due(plan, 'brake_fluid').dueKm, isNull);
+    });
+
+    test('inspect-only items without an interval are left out', () {
+      final plan = planner.plan(
+        vehicle: _car(),
+        group: _group,
+        records: const [],
+        now: _added,
+      );
+      expect(plan.all.map((d) => d.partId), isNot(contains('timing_chain')));
+    });
+  });
+
+  group('with history', () {
+    test('due km is last done km plus the interval', () {
+      final plan = planner.plan(
+        vehicle: _car(km: 64000),
+        group: _group,
+        records: [_done('engine_oil', 62000, DateTime(2026, 2, 1))],
+        now: DateTime(2026, 2, 10),
+      );
+      final oil = _due(plan, 'engine_oil');
+      expect(oil.basis, DueBasis.record);
+      expect(oil.dueKm, 72000);
+      expect(oil.dueDate, DateTime(2027, 2, 1));
+      expect(oil.kmProgress(64000), closeTo(0.2, 1e-9));
+    });
+
+    test('uses the record with the highest km', () {
+      final plan = planner.plan(
+        vehicle: _car(km: 64000),
         group: _group,
         records: [
-          ServiceRecord(
-            id: 'r',
-            vehicleId: 'v1',
-            partId: 'engine_oil',
-            km: 20000,
-            date: _start,
-          ),
+          _done('engine_oil', 52000, DateTime(2025, 6, 1)),
+          _done('engine_oil', 62000, DateTime(2026, 2, 1)),
         ],
-        now: _start.add(const Duration(days: 10)),
+        now: DateTime(2026, 2, 10),
       );
-      expect(_dueFor(dues, 'engine_oil').status, DueStatus.ok);
-      expect(_dueFor(dues, 'timing_belt').status, DueStatus.unknown);
+      expect(_due(plan, 'engine_oil').dueKm, 72000);
+    });
+  });
+
+  group('schedules', () {
+    test('work use takes severe intervals, falling back to normal months',
+        () {
+      final v = _car(usage: VehicleUsage.work);
+      final belt = MaintenancePlanner.effectiveInterval(_belt, v)!;
+      expect(belt.km, 40000);
+      expect(belt.months, 36);
+      expect(MaintenancePlanner.effectiveInterval(_oil, v)!.km, 5000);
     });
 
-    test('skips items without an interval', () {
-      final dues = planner.plan(
-        vehicle: _vehicle(),
+    test('non-synthetic oil shortens only the oil change, with a cap', () {
+      final v = _car(oil: OilType.semiSynthetic);
+      expect(MaintenancePlanner.effectiveInterval(_oil, v)!.km, 5000);
+      expect(MaintenancePlanner.effectiveInterval(_belt, v)!.km, 80000);
+    });
+  });
+
+  group('status', () {
+    test('overdue when the odometer passed the target', () {
+      final plan = planner.plan(
+        vehicle: _car(km: 73000),
         group: _group,
-        records: const [],
-        now: _start,
+        records: [_done('engine_oil', 62000, DateTime(2026, 1, 1))],
+        now: DateTime(2026, 2, 1),
       );
-      expect(dues.map((d) => d.item.partId), isNot(contains('timing_chain')));
+      expect(_due(plan, 'engine_oil').status, DueStatus.overdue);
     });
 
-    test('counts from the latest service record of this vehicle', () {
-      final records = [
-        ServiceRecord(
-          id: 'r1',
-          vehicleId: 'v1',
-          partId: 'engine_oil',
-          km: 24000,
-          date: DateTime(2026, 3, 1),
-        ),
-        ServiceRecord(
-          id: 'r0',
-          vehicleId: 'v1',
-          partId: 'engine_oil',
-          km: 21000,
-          date: DateTime(2026, 1, 20),
-        ),
-        ServiceRecord(
-          id: 'other',
-          vehicleId: 'v2',
-          partId: 'engine_oil',
-          km: 99000,
-          date: DateTime(2026, 3, 1),
-        ),
-      ];
-      final dues = planner.plan(
-        vehicle: _vehicle(),
+    test('overdue when the date passed even with few km', () {
+      final plan = planner.plan(
+        vehicle: _car(km: 62500),
         group: _group,
-        records: records,
-        now: DateTime(2026, 3, 2),
-      );
-      final oil = _dueFor(dues, 'engine_oil');
-      expect(oil.hasServiceRecord, isTrue);
-      expect(oil.lastDoneKm, 24000);
-      expect(oil.dueKm, 34000);
-      expect(oil.dueDate, DateTime(2027, 3, 1));
-    });
-
-    test('marks overdue by km and sorts it first', () {
-      final now = _start.add(const Duration(days: 220));
-      final dues = planner.plan(
-        vehicle: _vehicle(dailyKm: 50),
-        group: _group,
-        records: const [],
-        now: now,
-      );
-      expect(dues.first.item.partId, 'engine_oil');
-      expect(dues.first.status, DueStatus.overdue);
-    });
-
-    test('marks overdue by time even with few km', () {
-      final dues = planner.plan(
-        vehicle: _vehicle(dailyKm: 1),
-        group: _group,
-        records: const [],
+        records: [_done('engine_oil', 62000, DateTime(2026, 1, 1))],
         now: DateTime(2027, 1, 2),
       );
-      expect(_dueFor(dues, 'engine_oil').status, DueStatus.overdue);
+      expect(_due(plan, 'engine_oil').status, DueStatus.overdue);
     });
 
-    test('marks due soon inside the km window', () {
-      // 10,000 km interval → window is max(1000, 10%) = 1000 km.
-      final now = _start.add(const Duration(days: 182));
-      final dues = planner.plan(
-        vehicle: _vehicle(dailyKm: 50),
+    test('due soon within 1,000 km', () {
+      final plan = planner.plan(
+        vehicle: _car(km: 71200),
+        group: _group,
+        records: [_done('engine_oil', 62000, DateTime(2026, 1, 1))],
+        now: DateTime(2026, 2, 1),
+      );
+      expect(_due(plan, 'engine_oil').status, DueStatus.dueSoon);
+    });
+  });
+
+  group('service visit', () {
+    test('groups items due close together into the next visit', () {
+      final plan = planner.plan(
+        vehicle: _car(km: 62000),
         group: _group,
         records: const [],
-        now: now,
+        now: _added,
       );
-      final oil = _dueFor(dues, 'engine_oil');
-      expect(oil.remainingKm, 900);
-      expect(oil.status, DueStatus.dueSoon);
+      final visit = plan.nextVisit!;
+      expect(
+        visit.items.map((d) => d.partId),
+        containsAll(['engine_oil', 'air_filter']),
+      );
+      expect(visit.dueKm, 70000);
+      expect(plan.later.map((d) => d.partId), contains('timing_belt'));
+    });
+
+    test('the most urgent item leads the visit', () {
+      final plan = planner.plan(
+        vehicle: _car(km: 73000),
+        group: _group,
+        records: [
+          _done('engine_oil', 62000, DateTime(2026, 1, 1)),
+          _done('air_filter', 70000, DateTime(2026, 1, 1)),
+        ],
+        now: DateTime(2026, 2, 1),
+      );
+      expect(plan.nextVisit!.items.first.partId, 'engine_oil');
+      expect(plan.nextVisit!.status, DueStatus.overdue);
+    });
+  });
+
+  group('learned pace', () {
+    test('comes from the user\'s own readings, not a guess', () {
+      expect(_car().learnedDailyKm, isNull);
+      final v = _car(
+        readings: [
+          OdometerReading(km: 60000, date: DateTime(2026, 1, 1)),
+          OdometerReading(km: 60600, date: DateTime(2026, 1, 21)),
+        ],
+      );
+      expect(v.learnedDailyKm, 30);
     });
   });
 }
