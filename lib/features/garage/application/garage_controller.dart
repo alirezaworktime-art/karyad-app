@@ -45,12 +45,15 @@ class GarageController extends ChangeNotifier {
   String _newId(String prefix) =>
       '$prefix-${_clock().microsecondsSinceEpoch.toRadixString(36)}';
 
+  /// Adds a car. [lastOilChangeKm], when the user remembers it, seeds the
+  /// engine-oil history; its date is estimated from average daily km.
   Future<Vehicle> addVehicle({
     required String modelId,
     required VehicleUsage usage,
     required OilType oilType,
     required int currentKm,
     required int averageDailyKm,
+    int? lastOilChangeKm,
     bool severeConditions = false,
   }) async {
     final reading = OdometerReading(km: currentKm, date: _clock());
@@ -64,10 +67,48 @@ class GarageController extends ChangeNotifier {
       lastReading: reading,
       severeConditions: severeConditions,
     );
+    final seeded = <ServiceRecord>[];
+    if (lastOilChangeKm != null && lastOilChangeKm <= currentKm) {
+      final daysAgo = averageDailyKm <= 0
+          ? 0
+          : (currentKm - lastOilChangeKm) ~/ averageDailyKm;
+      seeded.add(
+        ServiceRecord(
+          id: _newId('svc'),
+          vehicleId: vehicle.id,
+          partId: MaintenancePlanner.engineOilPartId,
+          km: lastOilChangeKm,
+          date: reading.date.subtract(Duration(days: daysAgo)),
+          estimated: true,
+        ),
+      );
+    }
     await _commit(
-      _data.copyWith(onboarded: true, vehicles: [..._data.vehicles, vehicle]),
+      _data.copyWith(
+        onboarded: true,
+        vehicles: [..._data.vehicles, vehicle],
+        records: [..._data.records, ...seeded],
+      ),
     );
     return vehicle;
+  }
+
+  /// For an item whose history the user does not remember: start counting
+  /// from the current odometer and today.
+  Future<void> startTrackingFromNow({
+    required String vehicleId,
+    required String partId,
+  }) async {
+    final vehicle = _data.vehicles.firstWhere((v) => v.id == vehicleId);
+    final record = ServiceRecord(
+      id: _newId('svc'),
+      vehicleId: vehicleId,
+      partId: partId,
+      km: estimatedOdometer(vehicle),
+      date: _clock(),
+      estimated: true,
+    );
+    await _commit(_data.copyWith(records: [..._data.records, record]));
   }
 
   Future<void> updateOdometer(String vehicleId, int km) async {
@@ -83,7 +124,9 @@ class GarageController extends ChangeNotifier {
   }
 
   /// Logs a completed task. If the odometer given is past the last
-  /// confirmed reading, it also becomes the new reading.
+  /// confirmed reading, it also becomes the new reading. A km below today's
+  /// estimate is a past service: without an explicit [date], its date is
+  /// estimated from average daily km and the record is marked estimated.
   Future<void> recordService({
     required String vehicleId,
     required String partId,
@@ -91,7 +134,15 @@ class GarageController extends ChangeNotifier {
     DateTime? date,
     int? costRial,
   }) async {
-    final when = date ?? _clock();
+    final vehicle = _data.vehicles.firstWhere((v) => v.id == vehicleId);
+    final now = _clock();
+    final kmBehind = estimatedOdometer(vehicle) - km;
+    final isPast = date == null && kmBehind > 0 && vehicle.averageDailyKm > 0;
+    final when =
+        date ??
+        (isPast
+            ? now.subtract(Duration(days: kmBehind ~/ vehicle.averageDailyKm))
+            : now);
     final record = ServiceRecord(
       id: _newId('svc'),
       vehicleId: vehicleId,
@@ -99,6 +150,7 @@ class GarageController extends ChangeNotifier {
       km: km,
       date: when,
       costRial: costRial,
+      estimated: isPast && kmBehind ~/ vehicle.averageDailyKm > 0,
     );
     await _commit(
       _data.copyWith(
@@ -106,9 +158,7 @@ class GarageController extends ChangeNotifier {
         vehicles: [
           for (final v in _data.vehicles)
             v.id == vehicleId && km > v.lastReading.km
-                ? v.copyWith(
-                    lastReading: OdometerReading(km: km, date: when),
-                  )
+                ? v.copyWith(lastReading: OdometerReading(km: km, date: now))
                 : v,
         ],
       ),

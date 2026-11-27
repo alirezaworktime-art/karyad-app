@@ -137,7 +137,27 @@ void main() {
       expect(oil.hasServiceRecord, isFalse);
       expect(oil.dueKm, 30000);
       expect(oil.remainingKm, 30000 - 25000);
-      expect(oil.status, DueStatus.ok);
+      // Not logged and not yet provably due: unknown, not a reassuring ok.
+      expect(oil.status, DueStatus.unknown);
+    });
+
+    test('a logged item that is not due is ok', () {
+      final dues = planner.plan(
+        vehicle: _vehicle(),
+        group: _group,
+        records: [
+          ServiceRecord(
+            id: 'r',
+            vehicleId: 'v1',
+            partId: 'engine_oil',
+            km: 20000,
+            date: _start,
+          ),
+        ],
+        now: _start.add(const Duration(days: 10)),
+      );
+      expect(_dueFor(dues, 'engine_oil').status, DueStatus.ok);
+      expect(_dueFor(dues, 'timing_belt').status, DueStatus.unknown);
     });
 
     test('skips items without an interval', () {

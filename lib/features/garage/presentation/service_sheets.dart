@@ -18,9 +18,9 @@ Future<void> showRecordServiceSheet(
     showDragHandle: true,
     builder: (context) => _NumberSheet(
       title: partName,
-      subtitle: 'در چه کیلومتری انجام شد؟',
+      subtitle: 'در چه کیلومتری انجام شد؟ اگر قبلاً بوده، همان عدد را بنویس.',
       initialKm: controller.estimatedOdometer(vehicle),
-      minKm: vehicle.trackingStart.km,
+      minKm: 0,
       showCost: true,
       confirmLabel: 'ثبت',
       onConfirm: (km, cost) => controller.recordService(

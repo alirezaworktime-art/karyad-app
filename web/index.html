@@ -46,14 +46,27 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <!-- Branded loading screen shown until Flutter paints its first frame,
+       so the first visit never shows a blank white page. -->
+  <style>
+    html, body { margin: 0; height: 100%; background: #F6F9F9; }
+    @media (prefers-color-scheme: dark) { html, body { background: #12201F; } }
+    #karyad-splash { position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+      font-family: Vazirmatn, Tahoma, sans-serif; color: #4A5A59; }
+    #karyad-splash img { width: 96px; height: 96px; animation: karyad-pulse 1.4s ease-in-out infinite; }
+    @keyframes karyad-pulse { 50% { transform: scale(0.94); opacity: 0.85; } }
+  </style>
+  <div id="karyad-splash" aria-live="polite">
+    <img src="icons/Icon-192.png" alt="کاریاد">
+    <span>در حال بارگذاری کاریاد…</span>
+  </div>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var splash = document.getElementById('karyad-splash');
+      if (splash) splash.remove();
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

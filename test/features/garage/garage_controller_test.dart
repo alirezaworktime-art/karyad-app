@@ -96,4 +96,42 @@ void main() {
     expect(decoded.vehicles.single.oilType, OilType.semiSynthetic);
     expect(decoded.vehicles.single.usage, VehicleUsage.work);
   });
+
+  test('seeds engine-oil history from the last oil change km', () async {
+    await controller.addVehicle(
+      modelId: 'pride-131',
+      usage: VehicleUsage.personal,
+      oilType: OilType.fullSynthetic,
+      currentKm: 80000,
+      averageDailyKm: 40,
+      lastOilChangeKm: 78000,
+    );
+    final vehicle = controller.primaryVehicle!;
+    final oil = controller
+        .duesFor(vehicle)
+        .firstWhere((d) => d.item.partId == 'engine_oil');
+    expect(oil.hasServiceRecord, isTrue);
+    expect(oil.lastDoneKm, 78000);
+    // 2,000 km at 40 km/day is about 50 days ago.
+    expect(oil.lastDoneDate, now.subtract(const Duration(days: 50)));
+  });
+
+  test('count-from-today turns an unknown item into a tracked one', () async {
+    final car = await controller.addVehicle(
+      modelId: 'quick',
+      usage: VehicleUsage.personal,
+      oilType: OilType.fullSynthetic,
+      currentKm: 30000,
+      averageDailyKm: 40,
+    );
+    await controller.startTrackingFromNow(
+      vehicleId: car.id,
+      partId: 'air_filter',
+    );
+    final air = controller
+        .duesFor(controller.primaryVehicle!)
+        .firstWhere((d) => d.item.partId == 'air_filter');
+    expect(air.hasServiceRecord, isTrue);
+    expect(controller.historyFor(car.id).single.estimated, isTrue);
+  });
 }

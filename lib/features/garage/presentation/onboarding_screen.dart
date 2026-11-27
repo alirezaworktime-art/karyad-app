@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../core/format/persian_format.dart';
+import '../../../core/ui/responsive_body.dart';
 import '../../catalog/domain/catalog.dart';
 import '../application/garage_controller.dart';
 import '../domain/vehicle.dart';
@@ -18,12 +19,14 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   int _step = 0;
   VehicleUsage? _usage;
-  String _makerId = 'ikco';
   String? _modelId;
   OilType _oil = OilType.fullSynthetic;
   int _dailyKm = 40;
+  bool _oilUnknown = false;
   final _kmController = TextEditingController();
+  final _lastOilController = TextEditingController();
   String? _kmError;
+  String? _oilError;
   bool _saving = false;
 
   Catalog get _catalog => widget.controller.catalog;
@@ -31,6 +34,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void dispose() {
     _kmController.dispose();
+    _lastOilController.dispose();
     super.dispose();
   }
 
@@ -42,8 +46,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _finish() async {
     final km = PersianFormat.parseInt(_kmController.text);
-    if (km == null || km < 0 || km > 2000000) {
-      setState(() => _kmError = 'کیلومتر فعلی ماشین را وارد کنید');
+    final lastOil = _oilUnknown
+        ? null
+        : PersianFormat.parseInt(_lastOilController.text);
+    String? kmError;
+    String? oilError;
+    if (km == null || km > 2000000) {
+      kmError = 'کیلومتر فعلی ماشین را وارد کنید';
+    }
+    if (!_oilUnknown && lastOil == null) {
+      oilError = 'کیلومتر آخرین تعویض را بنویس یا «یادم نیست» را بزن';
+    } else if (lastOil != null && km != null && lastOil > km) {
+      oilError = 'از کیلومتر فعلی بیشتر است';
+    }
+    if (kmError != null || oilError != null) {
+      setState(() {
+        _kmError = kmError;
+        _oilError = oilError;
+      });
       return;
     }
     setState(() => _saving = true);
@@ -51,8 +71,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       modelId: _modelId!,
       usage: _usage!,
       oilType: _oil,
-      currentKm: km,
+      currentKm: km!,
       averageDailyKm: _dailyKm,
+      lastOilChangeKm: lastOil,
     );
   }
 
@@ -70,38 +91,44 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
       ),
       body: SafeArea(
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 200),
-          child: switch (_step) {
-            0 => _UsageStep(key: const ValueKey(0), onChoose: _chooseUsage),
-            1 => _ModelStep(
-              key: const ValueKey(1),
-              catalog: _catalog,
-              makerId: _makerId,
-              selectedModelId: _modelId,
-              onMaker: (id) => setState(() {
-                _makerId = id;
-                _modelId = null;
-              }),
-              onModel: (id) => setState(() {
-                _modelId = id;
-                _step = 2;
-              }),
-            ),
-            _ => _DetailsStep(
-              key: const ValueKey(2),
-              modelName: _catalog.model(_modelId!)?.nameFa ?? '',
-              kmController: _kmController,
-              kmError: _kmError,
-              dailyKm: _dailyKm,
-              oil: _oil,
-              saving: _saving,
-              onDailyKm: (v) => setState(() => _dailyKm = v),
-              onOil: (v) => setState(() => _oil = v),
-              onKmChanged: () => setState(() => _kmError = null),
-              onFinish: _finish,
-            ),
-          },
+        child: ResponsiveBody(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: switch (_step) {
+              0 => _UsageStep(key: const ValueKey(0), onChoose: _chooseUsage),
+              1 => _ModelStep(
+                key: const ValueKey(1),
+                catalog: _catalog,
+                onModel: (id) => setState(() {
+                  _modelId = id;
+                  _step = 2;
+                }),
+              ),
+              _ => _DetailsStep(
+                key: const ValueKey(2),
+                modelName: _catalog.model(_modelId!)?.nameFa ?? '',
+                kmController: _kmController,
+                lastOilController: _lastOilController,
+                kmError: _kmError,
+                oilError: _oilError,
+                oilUnknown: _oilUnknown,
+                dailyKm: _dailyKm,
+                oil: _oil,
+                saving: _saving,
+                onDailyKm: (v) => setState(() => _dailyKm = v),
+                onOil: (v) => setState(() => _oil = v),
+                onOilUnknown: (v) => setState(() {
+                  _oilUnknown = v;
+                  _oilError = null;
+                }),
+                onEdited: () => setState(() {
+                  _kmError = null;
+                  _oilError = null;
+                }),
+                onFinish: _finish,
+              ),
+            },
+          ),
         ),
       ),
     );
@@ -121,13 +148,24 @@ class _StepHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'مرحله ${PersianFormat.digits('$step')} از ۳',
-          style: theme.textTheme.labelLarge?.copyWith(
-            color: theme.colorScheme.primary,
-          ),
+        Row(
+          children: [
+            for (var i = 1; i <= 3; i++)
+              Expanded(
+                child: Container(
+                  height: 4,
+                  margin: EdgeInsetsDirectional.only(end: i < 3 ? 6 : 0),
+                  decoration: BoxDecoration(
+                    color: i <= step
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+          ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 20),
         Text(
           title,
           style: theme.textTheme.headlineSmall?.copyWith(
@@ -136,7 +174,12 @@ class _StepHeader extends StatelessWidget {
         ),
         if (subtitle != null) ...[
           const SizedBox(height: 6),
-          Text(subtitle!, style: theme.textTheme.bodyMedium),
+          Text(
+            subtitle!,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ],
         const SizedBox(height: 20),
       ],
@@ -157,7 +200,7 @@ class _UsageStep extends StatelessWidget {
         const _StepHeader(
           step: 1,
           title: 'با ماشینت چه کار می‌کنی؟',
-          subtitle: 'برای این‌که زمان سرویس‌ها درست حساب شود.',
+          subtitle: 'تا زمان سرویس‌ها را درست حساب کنیم.',
         ),
         _ChoiceCard(
           icon: Icons.directions_car_outlined,
@@ -169,7 +212,7 @@ class _UsageStep extends StatelessWidget {
         _ChoiceCard(
           icon: Icons.local_taxi_outlined,
           title: 'با ماشینم کار می‌کنم',
-          body: 'اسنپ، تپسی، تاکسی یا پیک. سرویس‌ها طبق «شرایط سخت» کارخانه زودتر یادآوری می‌شوند.',
+          body: 'اسنپ، تپسی، تاکسی یا پیک. یادآورها طبق «شرایط سخت» کارخانه زودتر می‌آیند.',
           onTap: () => onChoose(VehicleUsage.work),
         ),
       ],
@@ -204,7 +247,11 @@ class _ChoiceCard extends StatelessWidget {
               CircleAvatar(
                 radius: 26,
                 backgroundColor: theme.colorScheme.primaryContainer,
-                child: Icon(icon, color: theme.colorScheme.primary, size: 28),
+                child: Icon(
+                  icon,
+                  color: theme.colorScheme.onPrimaryContainer,
+                  size: 28,
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -218,7 +265,12 @@ class _ChoiceCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(body, style: theme.textTheme.bodyMedium),
+                    Text(
+                      body,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -231,53 +283,118 @@ class _ChoiceCard extends StatelessWidget {
   }
 }
 
-class _ModelStep extends StatelessWidget {
-  const _ModelStep({
-    super.key,
-    required this.catalog,
-    required this.makerId,
-    required this.selectedModelId,
-    required this.onMaker,
-    required this.onModel,
-  });
+/// One searchable list of every model, most common cars first, each with
+/// its maker underneath. Typing «پرا» finds پراید.
+class _ModelStep extends StatefulWidget {
+  const _ModelStep({super.key, required this.catalog, required this.onModel});
 
   final Catalog catalog;
-  final String makerId;
-  final String? selectedModelId;
-  final ValueChanged<String> onMaker;
   final ValueChanged<String> onModel;
+
+  /// Most common cars on Iranian roads, shown first.
+  static const popular = [
+    'pride-131',
+    '206-tip2',
+    '206-tip5',
+    '405',
+    'pars-xu7p',
+    'samand-lx',
+    'tiba',
+    'quick',
+    'dena-plus',
+    'saina',
+    'shahin',
+    '207',
+    'rana-plus',
+    'tara',
+    'pride-132',
+    'saba',
+  ];
+
+  @override
+  State<_ModelStep> createState() => _ModelStepState();
+}
+
+class _ModelStepState extends State<_ModelStep> {
+  String _query = '';
+
+  List<(VehicleModel, Maker?)> _models() {
+    final catalog = widget.catalog;
+    final all = <(VehicleModel, Maker?)>[
+      for (final group in catalog.groups)
+        for (final model in group.models) (model, catalog.maker(group.makerId)),
+    ];
+    int rank(VehicleModel m) {
+      final i = _ModelStep.popular.indexOf(m.id);
+      return i < 0 ? _ModelStep.popular.length : i;
+    }
+
+    all.sort((a, b) => rank(a.$1).compareTo(rank(b.$1)));
+    final q = _normalize(_query.trim());
+    if (q.isEmpty) return all;
+    return [
+      for (final entry in all)
+        if (_normalize(entry.$1.nameFa).contains(q) ||
+            entry.$1.id.contains(q.toLowerCase()))
+          entry,
+    ];
+  }
+
+  /// Folds Arabic ي/ك into Persian ی/ک and digits to Latin, so any keyboard
+  /// finds the model.
+  static String _normalize(String text) {
+    final buffer = StringBuffer();
+    for (final rune in text.runes) {
+      final char = String.fromCharCode(rune);
+      buffer.write(switch (char) {
+        'ي' => 'ی',
+        'ك' => 'ک',
+        _ => PersianFormat.parseInt(char)?.toString() ?? char,
+      });
+    }
+    return buffer.toString().replaceAll('‌', ' ');
+  }
 
   @override
   Widget build(BuildContext context) {
-    final models = catalog.modelsOfMaker(makerId);
+    final theme = Theme.of(context);
+    final models = _models();
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
         const _StepHeader(step: 2, title: 'ماشینت کدام است؟'),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final maker in catalog.makers)
-              ChoiceChip(
-                label: Text(maker.nameFa),
-                selected: maker.id == makerId,
-                onSelected: (_) => onMaker(maker.id),
-              ),
-          ],
+        TextField(
+          key: const Key('model-search'),
+          onChanged: (v) => setState(() => _query = v),
+          decoration: const InputDecoration(
+            prefixIcon: Icon(Icons.search),
+            hintText: 'جستجو: پراید، ۲۰۶، دنا…',
+          ),
         ),
-        const SizedBox(height: 16),
-        for (final model in models)
+        const SizedBox(height: 12),
+        if (models.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Text(
+              'این مدل هنوز در فهرست نیست. به‌زودی اضافه می‌شود.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium,
+            ),
+          ),
+        for (final (model, maker) in models)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Card(
               clipBehavior: Clip.antiAlias,
               child: ListTile(
-                minTileHeight: 56,
-                title: Text(model.nameFa),
+                minTileHeight: 60,
+                title: Text(
+                  model.nameFa,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: maker == null ? null : Text(maker.nameFa),
                 trailing: const Icon(Icons.chevron_right),
-                selected: model.id == selectedModelId,
-                onTap: () => onModel(model.id),
+                onTap: () => widget.onModel(model.id),
               ),
             ),
           ),
@@ -291,25 +408,33 @@ class _DetailsStep extends StatelessWidget {
     super.key,
     required this.modelName,
     required this.kmController,
+    required this.lastOilController,
     required this.kmError,
+    required this.oilError,
+    required this.oilUnknown,
     required this.dailyKm,
     required this.oil,
     required this.saving,
     required this.onDailyKm,
     required this.onOil,
-    required this.onKmChanged,
+    required this.onOilUnknown,
+    required this.onEdited,
     required this.onFinish,
   });
 
   final String modelName;
   final TextEditingController kmController;
+  final TextEditingController lastOilController;
   final String? kmError;
+  final String? oilError;
+  final bool oilUnknown;
   final int dailyKm;
   final OilType oil;
   final bool saving;
   final ValueChanged<int> onDailyKm;
   final ValueChanged<OilType> onOil;
-  final VoidCallback onKmChanged;
+  final ValueChanged<bool> onOilUnknown;
+  final VoidCallback onEdited;
   final VoidCallback onFinish;
 
   static const _dailyOptions = [20, 40, 80, 150, 250];
@@ -317,15 +442,23 @@ class _DetailsStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final label = theme.textTheme.titleSmall?.copyWith(
+      fontWeight: FontWeight.w700,
+    );
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        _StepHeader(step: 3, title: modelName, subtitle: 'دو سؤال کوتاه دیگر.'),
+        _StepHeader(
+          step: 3,
+          title: modelName,
+          subtitle: 'چند عدد ساده؛ بعداً هم قابل تغییر است.',
+        ),
         TextField(
+          key: const Key('current-km'),
           controller: kmController,
           keyboardType: TextInputType.number,
-          textInputAction: TextInputAction.done,
-          onChanged: (_) => onKmChanged(),
+          textInputAction: TextInputAction.next,
+          onChanged: (_) => onEdited(),
           decoration: InputDecoration(
             labelText: 'کیلومتر فعلی ماشین',
             hintText: '۸۵٬۰۰۰',
@@ -333,8 +466,31 @@ class _DetailsStep extends StatelessWidget {
             errorText: kmError,
           ),
         ),
-        const SizedBox(height: 24),
-        Text('روزی چقدر رانندگی می‌کنی؟', style: theme.textTheme.titleSmall),
+        const SizedBox(height: 16),
+        TextField(
+          key: const Key('last-oil-km'),
+          controller: lastOilController,
+          enabled: !oilUnknown,
+          keyboardType: TextInputType.number,
+          onChanged: (_) => onEdited(),
+          decoration: InputDecoration(
+            labelText: 'آخرین تعویض روغن در چه کیلومتری بود؟',
+            hintText: '۸۲٬۰۰۰',
+            suffixText: 'کیلومتر',
+            errorText: oilError,
+            helperText: 'روی برچسب پشت شیشه یا فاکتور تعویض‌روغنی نوشته شده.',
+          ),
+        ),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: FilterChip(
+            label: const Text('یادم نیست'),
+            selected: oilUnknown,
+            onSelected: onOilUnknown,
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text('روزی چقدر رانندگی می‌کنی؟', style: label),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -348,10 +504,11 @@ class _DetailsStep extends StatelessWidget {
               ),
           ],
         ),
-        const SizedBox(height: 24),
-        Text('چه روغنی می‌ریزی؟', style: theme.textTheme.titleSmall),
+        const SizedBox(height: 20),
+        Text('چه روغنی می‌ریزی؟', style: label),
         const SizedBox(height: 8),
         SegmentedButton<OilType>(
+          showSelectedIcon: false,
           segments: const [
             ButtonSegment(value: OilType.mineral, label: Text('معدنی')),
             ButtonSegment(
@@ -366,12 +523,14 @@ class _DetailsStep extends StatelessWidget {
           selected: {oil},
           onSelectionChanged: (set) => onOil(set.first),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Text(
-          'نمی‌دانی؟ همان تمام‌سنتتیک بماند؛ بعداً عوضش می‌کنی.',
-          style: theme.textTheme.bodySmall,
+          'نمی‌دانی؟ تمام‌سنتتیک بماند؛ بعداً عوضش می‌کنی.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 28),
         FilledButton(
           onPressed: saving ? null : onFinish,
           child: const Text('شروع'),

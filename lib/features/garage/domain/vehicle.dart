@@ -127,6 +127,7 @@ class ServiceRecord {
     required this.date,
     this.costRial,
     this.note,
+    this.estimated = false,
   });
 
   final String id;
@@ -137,6 +138,10 @@ class ServiceRecord {
   final int? costRial;
   final String? note;
 
+  /// True when the user did not remember and chose "count from today", or
+  /// gave only an approximate km. Shown as such in the history.
+  final bool estimated;
+
   Map<String, Object?> toJson() => {
     'id': id,
     'vehicleId': vehicleId,
@@ -145,6 +150,7 @@ class ServiceRecord {
     'date': date.toIso8601String(),
     'costRial': costRial,
     'note': note,
+    'estimated': estimated,
   };
 
   factory ServiceRecord.fromJson(Map<String, Object?> json) => ServiceRecord(
@@ -155,5 +161,6 @@ class ServiceRecord {
     date: DateTime.parse(json['date'] as String),
     costRial: json['costRial'] as int?,
     note: json['note'] as String?,
+    estimated: json['estimated'] as bool? ?? false,
   );
 }

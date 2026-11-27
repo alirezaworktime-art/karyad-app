@@ -1,7 +1,16 @@
 import '../../catalog/domain/catalog.dart';
 import 'vehicle.dart';
 
-enum DueStatus { overdue, dueSoon, ok }
+/// Ordered by how much it needs the user's attention.
+enum DueStatus {
+  overdue,
+  dueSoon,
+
+  /// Never logged, and the time since the car was added does not yet prove
+  /// it is due. The app asks the user when it was last done.
+  unknown,
+  ok,
+}
 
 /// One upcoming maintenance task for a vehicle, with how close it is.
 class MaintenanceDue {
@@ -143,7 +152,12 @@ class MaintenancePlanner {
           dueDate: dueDate,
           remainingKm: remainingKm,
           remainingDays: remainingDays,
-          status: _status(interval.km, remainingKm, remainingDays),
+          status: _statusFor(
+            hasRecord: last != null,
+            intervalKm: interval.km,
+            remainingKm: remainingKm,
+            remainingDays: remainingDays,
+          ),
           urgency: urgency,
         ),
       );
@@ -154,6 +168,20 @@ class MaintenancePlanner {
       return byStatus != 0 ? byStatus : b.urgency.compareTo(a.urgency);
     });
     return dues;
+  }
+
+  /// Without a record, counting from the day the car was added only proves
+  /// something when it is already due; otherwise the honest answer is
+  /// "unknown" rather than a reassuring "ok".
+  DueStatus _statusFor({
+    required bool hasRecord,
+    required int? intervalKm,
+    required int? remainingKm,
+    required int? remainingDays,
+  }) {
+    final status = _status(intervalKm, remainingKm, remainingDays);
+    if (!hasRecord && status == DueStatus.ok) return DueStatus.unknown;
+    return status;
   }
 
   DueStatus _status(int? intervalKm, int? remainingKm, int? remainingDays) {
