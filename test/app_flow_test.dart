@@ -31,6 +31,12 @@ Future<void> _tap(WidgetTester tester, Finder finder) async {
   await tester.pumpAndSettle();
 }
 
+/// Leaves the details step and skips the optional history step.
+Future<void> _continueAndSkipHistory(WidgetTester tester) async {
+  await _tap(tester, find.text('ادامه'));
+  await _tap(tester, find.text('هیچ‌کدام یادم نیست، رد شو'));
+}
+
 Future<void> _pickModel(WidgetTester tester, String search, String name) async {
   await tester.enterText(find.byKey(const Key('model-search')), search);
   await tester.pumpAndSettle();
@@ -51,7 +57,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('current-km')), '۶۲٬۴۰۰');
     await tester.enterText(find.byKey(const Key('sticker-km')), '72000');
     await _tap(tester, find.bySemanticsLabel('نقره‌ای'));
-    await _tap(tester, find.text('تمام'));
+    await _continueAndSkipHistory(tester);
 
     expect(find.text('سرویس بعدی'), findsOneWidget);
     expect(find.textContaining('۷۲٬۰۰۰', findRichText: true), findsWidgets);
@@ -63,7 +69,7 @@ void main() {
     final controller = await _pumpApp(tester);
     await _tap(tester, find.text('شروع کنیم'));
     await _pickModel(tester, 'پراید', 'پراید ۱۳۱');
-    await _tap(tester, find.text('تمام'));
+    await _tap(tester, find.text('ادامه'));
 
     expect(find.text('عدد کیلومترشمار را بنویس'), findsOneWidget);
     expect(
@@ -79,10 +85,30 @@ void main() {
     await _pickModel(tester, '405', 'پژو ۴۰۵');
     await tester.enterText(find.byKey(const Key('current-km')), '183500');
     await _tap(tester, find.text('برچسب ندارم'));
-    await _tap(tester, find.text('تمام'));
+    await _continueAndSkipHistory(tester);
 
     // 405 oil every 10,000 km → next milestone after 183,500 is 190,000.
     expect(find.textContaining('۱۹۰٬۰۰۰', findRichText: true), findsWidgets);
+  });
+
+  testWidgets('remembered replacements move their targets', (tester) async {
+    await _pumpApp(tester);
+    await _tap(tester, find.text('شروع کنیم'));
+    await _pickModel(tester, 'دنا', 'دنا پلاس');
+    await tester.enterText(find.byKey(const Key('current-km')), '62400');
+    await tester.enterText(find.byKey(const Key('sticker-km')), '72000');
+    await _tap(tester, find.text('ادامه'));
+
+    expect(find.text('آخرین بار کِی عوض شده‌اند؟'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('last-air_filter')), '70000');
+    await _tap(tester, find.text('تمام'));
+    expect(find.textContaining('از کیلومترشمار'), findsOneWidget);
+
+    // Air filter every 10,000 km from 61,000 → 71,000, ahead of the oil.
+    await tester.enterText(find.byKey(const Key('last-air_filter')), '۶۱۰۰۰');
+    await _tap(tester, find.text('تمام'));
+    expect(find.text('سرویس بعدی'), findsOneWidget);
+    expect(find.textContaining('۷۱٬۰۰۰', findRichText: true), findsWidgets);
   });
 
   testWidgets('logging a visit moves the next service and fills history', (
@@ -93,7 +119,7 @@ void main() {
     await _pickModel(tester, 'کوییک', 'کوییک');
     await tester.enterText(find.byKey(const Key('current-km')), '30000');
     await _tap(tester, find.text('برچسب ندارم'));
-    await _tap(tester, find.text('تمام'));
+    await _continueAndSkipHistory(tester);
 
     await _tap(tester, find.text('سرویس را انجام دادم'));
     await tester.enterText(find.byKey(const Key('visit-km')), '30000');

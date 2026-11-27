@@ -72,8 +72,25 @@ class GarageController extends ChangeNotifier {
     for (final v in _data.vehicles) v.id == updated.id ? updated : v,
   ];
 
+  /// Parts whose last replacement the user can tell us while adding a car:
+  /// everything replaced on a km interval, except the oil (the sticker
+  /// covers it). Without an answer a part follows the factory milestones.
+  List<MaintenanceItem> startingHistoryItems(String modelId) {
+    final group = catalog.groupForModel(modelId);
+    if (group == null) return const [];
+    return [
+      for (final item in group.items)
+        if (item.action == MaintenanceAction.replace &&
+            item.partId != MaintenancePlanner.engineOilPartId &&
+            (item.normal?.km ?? item.severe?.km) != null)
+          item,
+    ];
+  }
+
   /// Adds a car. [nextOilChangeKm] is the number on the oil-change sticker:
-  /// the engine-oil countdown then ends exactly there.
+  /// the engine-oil countdown then ends exactly there. [lastReplacedKm] maps
+  /// part ids to the odometer at their last replacement, as the user
+  /// remembers it; values above [currentKm] are ignored.
   Future<Vehicle> addVehicle({
     required String modelId,
     required VehicleUsage usage,
@@ -81,6 +98,7 @@ class GarageController extends ChangeNotifier {
     OilType oilType = OilType.fullSynthetic,
     CarColor color = CarColor.white,
     int? nextOilChangeKm,
+    Map<String, int> lastReplacedKm = const {},
   }) async {
     final now = _clock();
     final vehicle = Vehicle(
@@ -105,6 +123,21 @@ class GarageController extends ChangeNotifier {
           vehicleId: vehicle.id,
           partId: MaintenancePlanner.engineOilPartId,
           km: lastChange < 0 ? 0 : lastChange,
+          date: now,
+          estimated: true,
+        ),
+      );
+    }
+
+    for (final entry in lastReplacedKm.entries) {
+      if (entry.value < 0 || entry.value > currentKm) continue;
+      if (entry.key == MaintenancePlanner.engineOilPartId) continue;
+      seeded.add(
+        ServiceRecord(
+          id: _newId('svc'),
+          vehicleId: vehicle.id,
+          partId: entry.key,
+          km: entry.value,
           date: now,
           estimated: true,
         ),

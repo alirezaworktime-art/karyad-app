@@ -52,6 +52,26 @@ void main() {
     expect(plan.all.firstWhere((d) => d.partId == 'engine_oil').dueKm, 70000);
   });
 
+  test('remembered replacements set targets; impossible ones are ignored',
+      () async {
+    final items = controller.startingHistoryItems('dena-plus');
+    expect(items.map((i) => i.partId), contains('air_filter'));
+    expect(items.map((i) => i.partId), isNot(contains('engine_oil')));
+
+    await controller.addVehicle(
+      modelId: 'dena-plus',
+      usage: VehicleUsage.personal,
+      currentKm: 62400,
+      lastReplacedKm: {'air_filter': 61000, 'spark_plugs': 90000},
+    );
+    final car = controller.primaryVehicle!;
+    final all = controller.planFor(car)!.all;
+    expect(all.firstWhere((d) => d.partId == 'air_filter').dueKm, 71000);
+    // 90,000 is above the odometer, so plugs stay on the factory schedule.
+    expect(all.firstWhere((d) => d.partId == 'spark_plugs').dueKm, 80000);
+    expect(controller.visitsFor(car.id), isEmpty);
+  });
+
   test('a visit saves every ticked item and moves the odometer', () async {
     final car = await controller.addVehicle(
       modelId: 'quick',

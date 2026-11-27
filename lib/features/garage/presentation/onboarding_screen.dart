@@ -10,7 +10,8 @@ import '../domain/vehicle.dart';
 import 'widgets/car_illustration.dart';
 import 'widgets/karyad_logo.dart';
 
-/// Welcome → pick the car → odometer, sticker and color. Under a minute.
+/// Welcome → pick the car → odometer, sticker and color → the last time
+/// key parts were replaced (optional). About a minute.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key, required this.controller});
 
@@ -20,9 +21,39 @@ class OnboardingScreen extends StatefulWidget {
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
+/// What the details step collected, kept while the history step is open.
+class _CarDetails {
+  const _CarDetails({
+    required this.currentKm,
+    required this.nextOilChangeKm,
+    required this.color,
+    required this.work,
+  });
+
+  final int currentKm;
+  final int? nextOilChangeKm;
+  final CarColor color;
+  final bool work;
+}
+
 class _OnboardingScreenState extends State<OnboardingScreen> {
   int _step = 0;
   String? _modelId;
+  _CarDetails? _details;
+  bool _saving = false;
+
+  Future<void> _finish(Map<String, int> lastReplacedKm) async {
+    final details = _details!;
+    setState(() => _saving = true);
+    await widget.controller.addVehicle(
+      modelId: _modelId!,
+      usage: details.work ? VehicleUsage.work : VehicleUsage.personal,
+      currentKm: details.currentKm,
+      color: details.color,
+      nextOilChangeKm: details.nextOilChangeKm,
+      lastReplacedKm: lastReplacedKm,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,10 +68,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           _step = 2;
         }),
       ),
-      _ => _DetailsStep(
+      2 => _DetailsStep(
         controller: widget.controller,
         modelId: _modelId!,
+        initial: _details,
         onBack: () => setState(() => _step = 1),
+        onNext: (details) => setState(() {
+          _details = details;
+          _step = 3;
+        }),
+      ),
+      _ => _HistoryStep(
+        controller: widget.controller,
+        modelId: _modelId!,
+        currentKm: _details!.currentKm,
+        saving: _saving,
+        onBack: () => setState(() => _step = 2),
+        onFinish: _finish,
       ),
     };
     return AnimatedSwitcher(
@@ -58,14 +102,14 @@ class _Progress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'مرحله ${PersianFormat.digits('$step')} از ۲',
+      label: 'مرحله ${PersianFormat.digits('$step')} از ۳',
       child: Row(
         children: [
-          for (var i = 1; i <= 2; i++)
+          for (var i = 1; i <= 3; i++)
             Expanded(
               child: Container(
                 height: 4,
-                margin: EdgeInsetsDirectional.only(end: i < 2 ? 6 : 0),
+                margin: EdgeInsetsDirectional.only(end: i < 3 ? 6 : 0),
                 decoration: BoxDecoration(
                   color: i <= step
                       ? BrandColors.violet
@@ -384,12 +428,16 @@ class _DetailsStep extends StatefulWidget {
   const _DetailsStep({
     required this.controller,
     required this.modelId,
+    required this.initial,
     required this.onBack,
+    required this.onNext,
   });
 
   final GarageController controller;
   final String modelId;
+  final _CarDetails? initial;
   final VoidCallback onBack;
+  final ValueChanged<_CarDetails> onNext;
 
   @override
   State<_DetailsStep> createState() => _DetailsStepState();
@@ -403,7 +451,22 @@ class _DetailsStepState extends State<_DetailsStep> {
   CarColor _color = CarColor.white;
   String? _kmError;
   String? _stickerError;
-  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    if (initial == null) return;
+    _km.text = PersianFormat.number(initial.currentKm);
+    final sticker = initial.nextOilChangeKm;
+    if (sticker == null) {
+      _noSticker = true;
+    } else {
+      _sticker.text = PersianFormat.number(sticker);
+    }
+    _color = initial.color;
+    _work = initial.work;
+  }
 
   @override
   void dispose() {
@@ -412,7 +475,7 @@ class _DetailsStepState extends State<_DetailsStep> {
     super.dispose();
   }
 
-  Future<void> _finish() async {
+  void _next() {
     final km = PersianFormat.parseInt(_km.text);
     final sticker = _noSticker ? null : PersianFormat.parseInt(_sticker.text);
     String? kmError;
@@ -432,13 +495,13 @@ class _DetailsStepState extends State<_DetailsStep> {
       });
       return;
     }
-    setState(() => _saving = true);
-    await widget.controller.addVehicle(
-      modelId: widget.modelId,
-      usage: _work ? VehicleUsage.work : VehicleUsage.personal,
-      currentKm: km!,
-      color: _color,
-      nextOilChangeKm: sticker,
+    widget.onNext(
+      _CarDetails(
+        currentKm: km!,
+        nextOilChangeKm: sticker,
+        color: _color,
+        work: _work,
+      ),
     );
   }
 
@@ -565,10 +628,7 @@ class _DetailsStepState extends State<_DetailsStep> {
                 ),
               ),
               const SizedBox(height: 28),
-              FilledButton(
-                onPressed: _saving ? null : _finish,
-                child: const Text('تمام'),
-              ),
+              FilledButton(onPressed: _next, child: const Text('ادامه')),
             ],
           ),
         ),
@@ -617,6 +677,144 @@ class _ColorDot extends StatelessWidget {
                       : Colors.white,
                 )
               : null,
+        ),
+      ),
+    );
+  }
+}
+
+/// Optional: when key parts were last replaced. A blank row means "I don't
+/// know"; that part then follows the factory milestones.
+class _HistoryStep extends StatefulWidget {
+  const _HistoryStep({
+    required this.controller,
+    required this.modelId,
+    required this.currentKm,
+    required this.saving,
+    required this.onBack,
+    required this.onFinish,
+  });
+
+  final GarageController controller;
+  final String modelId;
+  final int currentKm;
+  final bool saving;
+  final VoidCallback onBack;
+  final ValueChanged<Map<String, int>> onFinish;
+
+  @override
+  State<_HistoryStep> createState() => _HistoryStepState();
+}
+
+class _HistoryStepState extends State<_HistoryStep> {
+  late final List<MaintenanceItem> _items = widget.controller
+      .startingHistoryItems(widget.modelId);
+  late final Map<String, TextEditingController> _fields = {
+    for (final item in _items) item.partId: TextEditingController(),
+  };
+  final Map<String, String> _errors = {};
+
+  @override
+  void dispose() {
+    for (final field in _fields.values) {
+      field.dispose();
+    }
+    super.dispose();
+  }
+
+  void _finish() {
+    final values = <String, int>{};
+    final errors = <String, String>{};
+    for (final entry in _fields.entries) {
+      final raw = entry.value.text.trim();
+      if (raw.isEmpty) continue;
+      final km = PersianFormat.parseInt(raw);
+      if (km == null) {
+        errors[entry.key] = 'فقط عدد بنویس یا خالی بگذار';
+      } else if (km > widget.currentKm) {
+        errors[entry.key] =
+            'از کیلومترشمار (${PersianFormat.number(widget.currentKm)}) بیشتر است';
+      } else {
+        values[entry.key] = km;
+      }
+    }
+    if (errors.isNotEmpty) {
+      setState(() => _errors
+        ..clear()
+        ..addAll(errors));
+      return;
+    }
+    widget.onFinish(values);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final catalog = widget.controller.catalog;
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'برگشت',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: widget.saving ? null : widget.onBack,
+        ),
+      ),
+      body: SafeArea(
+        top: false,
+        child: ResponsiveBody(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            children: [
+              const _Progress(step: 3),
+              const SizedBox(height: 16),
+              Text(
+                'آخرین بار کِی عوض شده‌اند؟',
+                style: text.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'اگر یادت هست، عدد کیلومترشمار در آن روز را بنویس. '
+                'اگر نه، خالی بگذار تا طبق برنامه‌ی کارخانه حساب کنیم. '
+                'بعداً هم می‌شود ثبت کرد.',
+                style: text.bodyMedium?.copyWith(color: BrandColors.muted),
+              ),
+              const SizedBox(height: 16),
+              for (final item in _items)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: TextField(
+                    key: Key('last-${item.partId}'),
+                    controller: _fields[item.partId],
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.next,
+                    onChanged: (_) {
+                      if (_errors.remove(item.partId) != null) setState(() {});
+                    },
+                    decoration: InputDecoration(
+                      labelText: catalog.part(item.partId)?.nameFa ??
+                          item.partId,
+                      hintText: 'نمی‌دانم',
+                      suffixText: 'کیلومتر',
+                      errorText: _errors[item.partId],
+                      errorMaxLines: 2,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 18),
+              FilledButton(
+                onPressed: widget.saving ? null : _finish,
+                child: const Text('تمام'),
+              ),
+              const SizedBox(height: 6),
+              TextButton(
+                onPressed:
+                    widget.saving ? null : () => widget.onFinish(const {}),
+                child: const Text('هیچ‌کدام یادم نیست، رد شو'),
+              ),
+            ],
+          ),
         ),
       ),
     );
