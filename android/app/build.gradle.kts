@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "ir.karyad.karyad"
+    namespace = "ir.karyad.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -16,7 +16,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "ir.karyad.karyad"
+        applicationId = "ir.karyad.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

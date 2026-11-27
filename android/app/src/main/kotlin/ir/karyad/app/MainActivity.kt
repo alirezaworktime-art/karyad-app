@@ -1,4 +1,4 @@
-package ir.karyad.karyad
+package ir.karyad.app
 
 import io.flutter.embedding.android.FlutterActivity
 
