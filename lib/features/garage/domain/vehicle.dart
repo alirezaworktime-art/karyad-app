@@ -62,7 +62,12 @@ class Vehicle {
   }) : assert(readings.isNotEmpty, 'a vehicle starts with one reading'),
        readings = List<OdometerReading>.unmodifiable(
          List<OdometerReading>.of(readings)
-           ..sort((x, y) => x.date.compareTo(y.date)),
+           // Same-day readings tie on date; the odometer never goes back,
+           // so km breaks the tie and the last reading is the highest.
+           ..sort((x, y) {
+             final byDate = x.date.compareTo(y.date);
+             return byDate != 0 ? byDate : x.km.compareTo(y.km);
+           }),
        );
 
   final String id;
