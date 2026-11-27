@@ -8,6 +8,10 @@ import 'package:material_ui/material_ui.dart';
 import 'helpers/catalog_fixture.dart';
 
 Future<GarageController> _pumpApp(WidgetTester tester) async {
+  // A phone-width, extra-tall screen so whole forms are laid out at once.
+  tester.view.devicePixelRatio = 3;
+  tester.view.physicalSize = const Size(400 * 3, 1600 * 3);
+  addTearDown(tester.view.reset);
   final controller = GarageController(
     repository: InMemoryGarageRepository(),
     catalog: loadCatalog(),
