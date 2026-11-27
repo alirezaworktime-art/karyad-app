@@ -461,14 +461,17 @@ class _UnknownTile extends StatelessWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              // Wrap, not Row: with large accessibility text the buttons
+              // move to a second line instead of overflowing.
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 4,
+                runSpacing: 4,
                 children: [
                   TextButton(
                     onPressed: onFromToday,
                     child: const Text('از امروز'),
                   ),
-                  const SizedBox(width: 4),
                   FilledButton.tonal(
                     onPressed: onLog,
                     style: FilledButton.styleFrom(

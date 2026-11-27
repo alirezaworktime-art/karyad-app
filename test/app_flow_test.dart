@@ -31,6 +31,16 @@ Future<void> _tapText(WidgetTester tester, String text) async {
   await tester.pumpAndSettle();
 }
 
+/// Taps a model in the picker list (not the search box, which may contain
+/// the same text).
+Future<void> _tapModel(WidgetTester tester, String name) async {
+  final finder = find.widgetWithText(ListTile, name).first;
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('onboarding with a remembered oil change reaches home', (
     tester,
@@ -42,7 +52,7 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('model-search')), 'کوییک');
     await tester.pumpAndSettle();
-    await _tapText(tester, 'کوییک');
+    await _tapModel(tester, 'کوییک');
 
     await tester.enterText(find.byKey(const Key('current-km')), '۳۰٬۰۰۰');
     await tester.enterText(find.byKey(const Key('last-oil-km')), '28000');
@@ -67,7 +77,7 @@ void main() {
     await _tapText(tester, 'با ماشینم کار می‌کنم');
     await tester.enterText(find.byKey(const Key('model-search')), 'دنا');
     await tester.pumpAndSettle();
-    await _tapText(tester, 'دنا');
+    await _tapModel(tester, 'دنا');
     await _tapText(tester, 'شروع');
 
     expect(find.text('کیلومتر فعلی ماشین را وارد کنید'), findsOneWidget);
@@ -86,7 +96,7 @@ void main() {
     await _tapText(tester, 'ماشین شخصی');
     await tester.enterText(find.byKey(const Key('model-search')), 'پراید');
     await tester.pumpAndSettle();
-    await _tapText(tester, 'پراید ۱۳۱');
+    await _tapModel(tester, 'پراید ۱۳۱');
     await tester.enterText(find.byKey(const Key('current-km')), '150000');
     await _tapText(tester, 'یادم نیست');
     await _tapText(tester, 'شروع');
@@ -104,7 +114,7 @@ void main() {
     // Arabic kaf (ك) and yeh (ي) still find «کوییک».
     await tester.enterText(find.byKey(const Key('model-search')), 'كوييك');
     await tester.pumpAndSettle();
-    expect(find.text('کوییک'), findsOneWidget);
+    expect(find.widgetWithText(ListTile, 'کوییک'), findsOneWidget);
 
     await tester.enterText(find.byKey(const Key('model-search')), 'تسلا');
     await tester.pumpAndSettle();
