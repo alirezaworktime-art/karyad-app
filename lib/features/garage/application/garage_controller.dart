@@ -158,7 +158,9 @@ class GarageController extends ChangeNotifier {
         vehicles: [
           for (final v in _data.vehicles)
             v.id == vehicleId && km > v.lastReading.km
-                ? v.copyWith(lastReading: OdometerReading(km: km, date: now))
+                ? v.copyWith(
+                    lastReading: OdometerReading(km: km, date: now),
+                  )
                 : v,
         ],
       ),

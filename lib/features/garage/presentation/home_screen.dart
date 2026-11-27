@@ -107,8 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const _SectionTitle(
                   title: 'آخرین بار کی انجام شد؟',
                   icon: Icons.help_outline,
-                  subtitle:
-                      'اگر یادت هست ثبتش کن؛ وگرنه «از امروز» را بزن تا از همین حالا حساب شود.',
+                  subtitle: 'اگر یادت هست ثبتش کن؛ وگرنه «از امروز» را بزن تا از همین حالا حساب شود.',
                 ),
                 for (final d in unknown)
                   _UnknownTile(
@@ -404,8 +403,11 @@ class _DueTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      [label, _remainingText(due), if (approximate) 'تقریبی']
-                          .join(' · '),
+                      [
+                        label,
+                        _remainingText(due),
+                        if (approximate) 'تقریبی',
+                      ].join(' · '),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
