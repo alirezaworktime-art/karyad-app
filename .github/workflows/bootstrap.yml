@@ -1,0 +1,52 @@
+name: Bootstrap Flutter project
+
+# One-time job: generates the official Flutter scaffold (platform folders,
+# Gradle files, etc.) with `flutter create` and commits it, so these files
+# come from the Flutter tool itself rather than being hand-written. It does
+# nothing once pubspec.yaml exists.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  scaffold:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check whether the project already exists
+        id: check
+        run: |
+          if [ -f pubspec.yaml ]; then echo "exists=true" >> "$GITHUB_OUTPUT"; else echo "exists=false" >> "$GITHUB_OUTPUT"; fi
+
+      - uses: subosito/flutter-action@v2
+        if: steps.check.outputs.exists == 'false'
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate scaffold
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          flutter --version | tee FLUTTER_VERSION.txt
+          flutter create \
+            --org ir.karyad \
+            --project-name karyad \
+            --platforms android,web,windows,macos,linux \
+            --description "Karyad: car maintenance reminders and driver ledger" \
+            .
+
+      - name: Commit scaffold
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: generate Flutter scaffold with flutter create"
+          git push
