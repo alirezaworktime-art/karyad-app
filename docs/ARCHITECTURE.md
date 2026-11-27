@@ -64,6 +64,9 @@ user can check against the dashboard and the calendar.
   learns km/day and adds «حدود ۳ هفته دیگر»; it never asks for km/day.
 - **Visits.** Items due within 2,000 km (or 45 days for time-only items) of
   the most urgent one are grouped into the next visit, logged together.
+  The visit's target comes from items with a recorded basis (sticker or
+  logged service) when it has any; factory-milestone estimates join it but
+  never pull a known target earlier.
 - **Severe schedule.** Work use (taxi, ride-hailing) → severe intervals for
   every item, falling back to normal values where severe ones are missing.
   Mineral / semi-synthetic oil → severe oil interval, capped at 5,000 /

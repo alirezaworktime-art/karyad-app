@@ -217,6 +217,23 @@ void main() {
       expect(plan.later.map((d) => d.partId), contains('timing_belt'));
     });
 
+    test('a recorded target sets the visit, not a nearby estimate', () {
+      // Sticker says oil at 72,000; the air filter has no history, so its
+      // factory milestone of 70,000 is only an estimate and joins the visit.
+      final plan = planner.plan(
+        vehicle: _car(km: 62400),
+        group: _group,
+        records: [_done('engine_oil', 62000, _added)],
+        now: _added,
+      );
+      final visit = plan.nextVisit!;
+      expect(
+        visit.items.map((d) => d.partId),
+        containsAll(['engine_oil', 'air_filter']),
+      );
+      expect(visit.dueKm, 72000);
+    });
+
     test('the most urgent item leads the visit', () {
       final plan = planner.plan(
         vehicle: _car(km: 73000),

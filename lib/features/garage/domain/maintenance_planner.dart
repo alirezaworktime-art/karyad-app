@@ -61,10 +61,11 @@ class ServiceVisit {
 
   final List<MaintenanceDue> items;
 
-  /// The earliest km target among the items, if any has one.
+  /// The earliest km target among the items, preferring items whose last
+  /// service is on record over factory-schedule estimates.
   final int? dueKm;
 
-  /// The earliest date among the items, if any has one.
+  /// The earliest date among the same items, if any has one.
   final DateTime? dueDate;
 
   DueStatus get status =>
@@ -209,12 +210,18 @@ class MaintenancePlanner {
         later.add(due);
       }
     }
+    // A target the user gave us (a sticker or a logged service) is a fact;
+    // a factory milestone for a part with no history is only an estimate.
+    // When a visit has both, the facts set its target, so the app never
+    // moves an oil change the sticker put at 72,000 back to 70,000.
+    final recorded = inVisit.where((d) => d.basis == DueBasis.record);
+    final anchors = recorded.isEmpty ? inVisit : recorded;
     return MaintenancePlan(
       odometerKm: odometer,
       nextVisit: ServiceVisit(
         items: inVisit,
-        dueKm: _minInt(inVisit.map((d) => d.dueKm)),
-        dueDate: _minDate(inVisit.map((d) => d.dueDate)),
+        dueKm: _minInt(anchors.map((d) => d.dueKm)),
+        dueDate: _minDate(anchors.map((d) => d.dueDate)),
       ),
       later: later,
     );
