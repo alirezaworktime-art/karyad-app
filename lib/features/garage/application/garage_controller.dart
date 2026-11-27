@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../catalog/domain/catalog.dart';
-import '../data/garagerepository.dart';
+import '../data/garage_repository.dart';
 import '../domain/maintenance_planner.dart';
 import '../domain/vehicle.dart';
 
