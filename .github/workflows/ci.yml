@@ -77,6 +77,39 @@ jobs:
         if: steps.checks.outputs.status != '0'
         run: exit 1
 
+  deploy-web:
+    name: Deploy web preview to GitHub Pages
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # Bundle the rendering engine instead of loading it from Google's CDN,
+      # which is unreliable from Iran.
+      - run: flutter build web --release --base-href /karyad-app/ --no-web-resources-cdn
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
   build-android:
     name: Build Android APK
     needs: verify
