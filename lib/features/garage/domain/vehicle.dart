@@ -22,10 +22,7 @@ class OdometerReading {
   final int km;
   final DateTime date;
 
-  Map<String, Object?> toJson() => {
-    'km': km,
-    'date': date.toIso8601String(),
-  };
+  Map<String, Object?> toJson() => {'km': km, 'date': date.toIso8601String()};
 
   factory OdometerReading.fromJson(Map<String, Object?> json) =>
       OdometerReading(
@@ -70,8 +67,7 @@ class Vehicle {
 
   /// Work use or declared severe conditions put the whole car on the
   /// severe schedule. Oil type only affects the engine-oil interval.
-  bool get usesSevereSchedule =>
-      usage == VehicleUsage.work || severeConditions;
+  bool get usesSevereSchedule => usage == VehicleUsage.work || severeConditions;
 
   Vehicle copyWith({
     String? nickname,

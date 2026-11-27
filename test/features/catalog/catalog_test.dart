@@ -4,9 +4,9 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:karyad/features/catalog/domain/catalog.dart';
 
-Map<String, Object?> _loadRaw() =>
-    jsonDecode(File('assets/catalog/maintenance-catalog.json').readAsStringSync())
-        as Map<String, Object?>;
+Map<String, Object?> _loadRaw() => jsonDecode(
+  File('assets/catalog/maintenance-catalog.json').readAsStringSync(),
+) as Map<String, Object?>;
 
 void main() {
   group('bundled catalog', () {

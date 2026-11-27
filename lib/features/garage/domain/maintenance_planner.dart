@@ -120,9 +120,7 @@ class MaintenancePlanner {
           ? null
           : _addMonths(lastDate, interval.months!);
       final remainingKm = dueKm == null ? null : dueKm - currentKm;
-      final remainingDays = dueDate == null
-          ? null
-          : _daysBetween(now, dueDate);
+      final remainingDays = dueDate == null ? null : _daysBetween(now, dueDate);
 
       final kmShare = interval.km == null
           ? 0.0

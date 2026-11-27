@@ -41,29 +41,31 @@ void main() {
     expect(saved.vehicles.single.modelId, 'quick');
   });
 
-  test('recording a service resets that item and advances the odometer',
-      () async {
-    final car = await controller.addVehicle(
-      modelId: 'dena',
-      usage: VehicleUsage.personal,
-      oilType: OilType.fullSynthetic,
-      currentKm: 50000,
-      averageDailyKm: 50,
-    );
-    now = now.add(const Duration(days: 30));
-    await controller.recordService(
-      vehicleId: car.id,
-      partId: 'engine_oil',
-      km: 51600,
-    );
-    final vehicle = controller.primaryVehicle!;
-    expect(vehicle.lastReading.km, 51600);
-    final oil = controller
-        .duesFor(vehicle)
-        .firstWhere((d) => d.item.partId == 'engine_oil');
-    expect(oil.hasServiceRecord, isTrue);
-    expect(oil.dueKm, 61600);
-  });
+  test(
+    'recording a service resets that item and advances the odometer',
+    () async {
+      final car = await controller.addVehicle(
+        modelId: 'dena',
+        usage: VehicleUsage.personal,
+        oilType: OilType.fullSynthetic,
+        currentKm: 50000,
+        averageDailyKm: 50,
+      );
+      now = now.add(const Duration(days: 30));
+      await controller.recordService(
+        vehicleId: car.id,
+        partId: 'engine_oil',
+        km: 51600,
+      );
+      final vehicle = controller.primaryVehicle!;
+      expect(vehicle.lastReading.km, 51600);
+      final oil = controller
+          .duesFor(vehicle)
+          .firstWhere((d) => d.item.partId == 'engine_oil');
+      expect(oil.hasServiceRecord, isTrue);
+      expect(oil.dueKm, 61600);
+    },
+  );
 
   test('odometer update replaces the estimate', () async {
     final car = await controller.addVehicle(

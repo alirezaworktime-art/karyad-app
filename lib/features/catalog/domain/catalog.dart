@@ -20,7 +20,10 @@ class ServiceInterval {
   static ServiceInterval? fromJson(Object? json) {
     if (json == null) return null;
     final map = json as Map<String, Object?>;
-    return ServiceInterval(km: map['km'] as int?, months: map['months'] as int?);
+    return ServiceInterval(
+      km: map['km'] as int?,
+      months: map['months'] as int?,
+    );
   }
 }
 

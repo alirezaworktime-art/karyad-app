@@ -55,9 +55,8 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 20),
             Text(
               'سرویس‌های پیش رو',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 10),
             for (final due in dues)
@@ -65,8 +64,8 @@ class HomeScreen extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 10),
                 child: _DueCard(
                   due: due,
-                  partName: catalog.part(due.item.partId)?.nameFa ??
-                      due.item.partId,
+                  partName:
+                      catalog.part(due.item.partId)?.nameFa ?? due.item.partId,
                   onDone: () => showRecordServiceSheet(
                     context,
                     controller: controller,
@@ -170,9 +169,7 @@ class _VehicleHeader extends StatelessWidget {
                   attention == 0
                       ? 'همه‌چیز مرتب است'
                       : '${PersianFormat.number(attention)} مورد نیاز به توجه',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: onPrimary,
-                  ),
+                  style: theme.textTheme.bodyMedium?.copyWith(color: onPrimary),
                 ),
               ),
               OutlinedButton.icon(

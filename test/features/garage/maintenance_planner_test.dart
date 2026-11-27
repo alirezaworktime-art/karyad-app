@@ -63,7 +63,10 @@ void main() {
     test('adds average daily km since the last reading', () {
       final v = _vehicle(dailyKm: 40);
       expect(
-        MaintenancePlanner.estimateOdometer(v, _start.add(const Duration(days: 10))),
+        MaintenancePlanner.estimateOdometer(
+          v,
+          _start.add(const Duration(days: 10)),
+        ),
         20400,
       );
     });
@@ -71,7 +74,10 @@ void main() {
     test('never goes below the last reading', () {
       final v = _vehicle();
       expect(
-        MaintenancePlanner.estimateOdometer(v, _start.subtract(const Duration(days: 3))),
+        MaintenancePlanner.estimateOdometer(
+          v,
+          _start.subtract(const Duration(days: 3)),
+        ),
         20000,
       );
     });
