@@ -243,7 +243,9 @@ class Vehicle {
               .where((t) => t.name == transmissionName)
               .firstOrNull ??
           Transmission.manual,
-      bodyType: BodyType.values.where((b) => b.name == bodyTypeName).firstOrNull,
+      bodyType: BodyType.values
+          .where((b) => b.name == bodyTypeName)
+          .firstOrNull,
       documentExpiry: {
         for (final e in rawDocuments.entries)
           if (VehicleDocument.values.any((d) => d.name == e.key))

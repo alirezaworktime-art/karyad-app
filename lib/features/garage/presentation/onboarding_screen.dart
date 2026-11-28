@@ -695,8 +695,7 @@ class _DetailsStepState extends State<_DetailsStep> {
                     suffixText: 'کیلومتر',
                     errorText: _oilIntervalError,
                     errorMaxLines: 3,
-                    helperText:
-                        'برای این ماشین دفترچه‌ی کارخونه نداریم؛ با همین عدد حساب می‌کنیم.',
+                    helperText: 'برای این ماشین دفترچه‌ی کارخونه نداریم؛ با همین عدد حساب می‌کنیم.',
                     helperMaxLines: 2,
                   ),
                 ),

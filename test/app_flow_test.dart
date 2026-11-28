@@ -234,10 +234,7 @@ void main() {
     expect(find.textContaining('یه عدد بین'), findsOneWidget);
 
     await tester.enterText(find.byKey(const Key('other-name')), 'ام‌وی‌ام X22');
-    await tester.enterText(
-      find.byKey(const Key('other-oil-interval')),
-      '۶۰۰۰',
-    );
+    await tester.enterText(find.byKey(const Key('other-oil-interval')), '۶۰۰۰');
     await _tap(tester, find.text('شاسی‌بلند'));
     // No parts to ask about, so «ادامه» finishes straight away.
     await _tap(tester, find.text('ادامه'));
