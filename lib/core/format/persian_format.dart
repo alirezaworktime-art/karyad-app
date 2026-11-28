@@ -20,6 +20,9 @@ abstract final class PersianFormat {
     'اسفند',
   ];
 
+  /// Name of a Solar Hijri month, 1 = فروردین.
+  static String monthName(int month) => _monthNames[month - 1];
+
   /// Replaces Latin digits with Persian ones: "12" → "۱۲".
   static String digits(String input) {
     final buffer = StringBuffer();

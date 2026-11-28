@@ -71,6 +71,13 @@ user can check against the dashboard and the calendar.
   every item, falling back to normal values where severe ones are missing.
   Mineral / semi-synthetic oil → severe oil interval, capped at 5,000 /
   7,000 km.
+- **Own oil interval.** The user may set the oil interval themselves (in
+  settings, or by typing the new sticker number when logging an oil change:
+  interval = sticker − km). It replaces both the factory figure and the
+  oil-type cap; clearing it restores them. Accepted: 1,000–30,000 km.
+- **Documents.** Third-party insurance and technical inspection expiry
+  dates (entered in Solar Hijri) show on home; within 30 days of expiry, or
+  after it, an alert with «تمدید کردم» appears at the top.
 - **Status.** Overdue when km or date passed; «نزدیک» within 1,000 km or
   30 days.
 

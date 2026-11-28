@@ -16,6 +16,19 @@ enum OilType {
   final int? maxKm;
 }
 
+/// Paperwork with an expiry date that the app reminds about.
+enum VehicleDocument {
+  insurance('بیمه‌ی شخص ثالث'),
+  inspection('معاینه‌ی فنی');
+
+  const VehicleDocument(this.nameFa);
+
+  final String nameFa;
+}
+
+/// Lets [Vehicle.copyWith] tell "leave as is" apart from "set to null".
+const Object _keep = Object();
+
 /// Body color, used to paint the car illustration.
 enum CarColor {
   white(0xFFFFFFFF, 'سفید'),
@@ -59,7 +72,10 @@ class Vehicle {
     this.color = CarColor.white,
     this.nickname,
     this.severeConditions = false,
+    this.oilIntervalKm,
+    Map<VehicleDocument, DateTime> documentExpiry = const {},
   }) : assert(readings.isNotEmpty, 'a vehicle starts with one reading'),
+       documentExpiry = Map.unmodifiable(documentExpiry),
        readings = List<OdometerReading>.unmodifiable(
          List<OdometerReading>.of(readings)
            // Same-day readings tie on date; the odometer never goes back,
@@ -83,6 +99,13 @@ class Vehicle {
 
   /// Personal-use cars the user says drive in severe conditions.
   final bool severeConditions;
+
+  /// The user's own oil-change interval (what their mechanic or the oil
+  /// can says). When set it replaces the factory figure and [oilType] cap.
+  final int? oilIntervalKm;
+
+  /// Expiry date of each document the user entered.
+  final Map<VehicleDocument, DateTime> documentExpiry;
 
   OdometerReading get firstReading => readings.first;
   OdometerReading get lastReading => readings.last;
@@ -108,6 +131,8 @@ class Vehicle {
     CarColor? color,
     List<OdometerReading>? readings,
     bool? severeConditions,
+    Object? oilIntervalKm = _keep,
+    Map<VehicleDocument, DateTime>? documentExpiry,
   }) => Vehicle(
     id: id,
     modelId: modelId,
@@ -117,6 +142,10 @@ class Vehicle {
     color: color ?? this.color,
     readings: readings ?? this.readings,
     severeConditions: severeConditions ?? this.severeConditions,
+    oilIntervalKm: identical(oilIntervalKm, _keep)
+        ? this.oilIntervalKm
+        : oilIntervalKm as int?,
+    documentExpiry: documentExpiry ?? this.documentExpiry,
   );
 
   Map<String, Object?> toJson() => {
@@ -128,6 +157,11 @@ class Vehicle {
     'color': color.name,
     'readings': [for (final r in readings) r.toJson()],
     'severeConditions': severeConditions,
+    'oilIntervalKm': oilIntervalKm,
+    'documentExpiry': {
+      for (final e in documentExpiry.entries)
+        e.key.name: e.value.toIso8601String(),
+    },
   };
 
   factory Vehicle.fromJson(Map<String, Object?> json) {
@@ -147,6 +181,8 @@ class Vehicle {
             ),
           ];
     final colorName = json['color'] as String?;
+    final rawDocuments =
+        json['documentExpiry'] as Map<String, Object?>? ?? const {};
     return Vehicle(
       id: json['id'] as String,
       modelId: json['modelId'] as String,
@@ -158,6 +194,14 @@ class Vehicle {
           : CarColor.values.byName(colorName),
       readings: readings,
       severeConditions: json['severeConditions'] as bool? ?? false,
+      oilIntervalKm: json['oilIntervalKm'] as int?,
+      documentExpiry: {
+        for (final e in rawDocuments.entries)
+          if (VehicleDocument.values.any((d) => d.name == e.key))
+            VehicleDocument.values.byName(e.key): DateTime.parse(
+              e.value! as String,
+            ),
+      },
     );
   }
 }

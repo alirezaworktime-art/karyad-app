@@ -1,11 +1,11 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../application/garage_controller.dart';
-import 'car_tab.dart';
 import 'history_tab.dart';
 import 'home_tab.dart';
+import 'settings_tab.dart';
 
-/// Bottom navigation: home, history, car.
+/// Bottom navigation: home, history, settings.
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key, required this.controller});
 
@@ -29,7 +29,7 @@ class _HomeShellState extends State<HomeShell> {
           children: [
             HomeTab(controller: controller),
             HistoryTab(controller: controller),
-            CarTab(controller: controller),
+            SettingsTab(controller: controller),
           ],
         ),
       ),
@@ -48,9 +48,9 @@ class _HomeShellState extends State<HomeShell> {
             label: 'سوابق',
           ),
           NavigationDestination(
-            icon: Icon(Icons.directions_car_outlined),
-            selectedIcon: Icon(Icons.directions_car),
-            label: 'ماشین',
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: 'تنظیمات',
           ),
         ],
       ),

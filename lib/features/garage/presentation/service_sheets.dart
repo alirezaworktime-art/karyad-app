@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../app/theme.dart';
 import '../../../core/format/persian_format.dart';
 import '../application/garage_controller.dart';
+import '../domain/maintenance_planner.dart';
 import '../domain/vehicle.dart';
 
 /// Log one workshop visit: odometer, what was done (pre-ticked with what
@@ -144,9 +145,11 @@ class _VisitSheetState extends State<_VisitSheet> {
     text: PersianFormat.digits('${widget.vehicle.lastReading.km}'),
   );
   final _cost = TextEditingController();
+  final _sticker = TextEditingController();
   late final Set<String> _selected = {...widget.preselected};
   bool _showAll = false;
   String? _kmError;
+  String? _stickerError;
   String? _itemsError;
   bool _saving = false;
 
@@ -154,8 +157,12 @@ class _VisitSheetState extends State<_VisitSheet> {
   void dispose() {
     _km.dispose();
     _cost.dispose();
+    _sticker.dispose();
     super.dispose();
   }
+
+  bool get _oilTicked =>
+      _selected.contains(MaintenancePlanner.engineOilPartId);
 
   List<String> _allParts() {
     final group = widget.controller.catalog.groupForModel(
@@ -178,6 +185,20 @@ class _VisitSheetState extends State<_VisitSheet> {
       setState(() => _itemsError = 'حداقل یک کار را تیک بزن');
       return;
     }
+    final sticker = _oilTicked ? PersianFormat.parseInt(_sticker.text) : null;
+    if (sticker != null) {
+      final interval = sticker - km;
+      if (interval < GarageController.minOilIntervalKm ||
+          interval > GarageController.maxOilIntervalKm) {
+        setState(
+          () => _stickerError =
+              'باید حدود ${PersianFormat.number(GarageController.minOilIntervalKm)} '
+              'تا ${PersianFormat.number(GarageController.maxOilIntervalKm)} '
+              'کیلومتر بیشتر از کیلومترشمار باشد',
+        );
+        return;
+      }
+    }
     final toman = PersianFormat.parseInt(_cost.text);
     setState(() => _saving = true);
     await widget.controller.recordVisit(
@@ -188,6 +209,7 @@ class _VisitSheetState extends State<_VisitSheet> {
           if (_selected.contains(id)) id,
       ],
       costRial: toman == null ? null : toman * 10,
+      nextOilChangeKm: sticker,
     );
     if (mounted) Navigator.of(context).pop();
   }
@@ -264,6 +286,24 @@ class _VisitSheetState extends State<_VisitSheet> {
                 label: const Text('کار دیگر (تسمه، شمع، لنت…)'),
               ),
             ),
+          if (_oilTicked) ...[
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('visit-sticker'),
+              controller: _sticker,
+              keyboardType: TextInputType.number,
+              onChanged: (_) => setState(() => _stickerError = null),
+              decoration: InputDecoration(
+                labelText: 'عدد برچسب جدید روغن (اختیاری)',
+                hintText: 'مثلاً ${PersianFormat.number(widget.vehicle.lastReading.km + 6000)}',
+                suffixText: 'کیلومتر',
+                helperText: 'تعویض بعدی دقیقاً همین عدد می‌شود.',
+                helperMaxLines: 2,
+                errorText: _stickerError,
+                errorMaxLines: 3,
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           TextField(
             controller: _cost,

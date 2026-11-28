@@ -130,6 +130,11 @@ class MaintenancePlanner {
     final months = primary?.months ?? fallback?.months;
     if (km == null && months == null) return null;
 
+    // An interval the user set (from their mechanic or the oil can) wins
+    // over both the factory figure and the oil-type cap.
+    final custom = vehicle.oilIntervalKm;
+    if (isOil && custom != null) return (km: custom, months: months);
+
     final oilCap = vehicle.oilType.maxKm;
     if (isOil && oilCap != null) {
       km = km == null ? oilCap : (km < oilCap ? km : oilCap);

@@ -172,4 +172,128 @@ void main() {
     expect(legacy.lastReading.km, 62000);
     expect(legacy.color, CarColor.white);
   });
+
+  group('own oil interval', () {
+    test('replaces the factory figure and the oil-type cap', () async {
+      final car = await controller.addVehicle(
+        modelId: 'dena-plus',
+        usage: VehicleUsage.personal,
+        currentKm: 62400,
+        oilType: OilType.mineral,
+        nextOilChangeKm: 67000,
+      );
+      await controller.setOilInterval(car.id, 6000);
+      var oil = controller
+          .planFor(controller.primaryVehicle!)!
+          .all
+          .firstWhere((d) => d.partId == 'engine_oil');
+      // Sticker 67,000 with the mineral 5,000 cap → last change at 62,000.
+      expect(oil.dueKm, 68000);
+
+      await controller.setOilInterval(car.id, 50);
+      expect(controller.primaryVehicle!.oilIntervalKm, 6000);
+
+      await controller.setOilInterval(car.id, null);
+      oil = controller
+          .planFor(controller.primaryVehicle!)!
+          .all
+          .firstWhere((d) => d.partId == 'engine_oil');
+      expect(oil.dueKm, 67000);
+    });
+
+    test('a new sticker at an oil change sets the interval', () async {
+      final car = await controller.addVehicle(
+        modelId: 'quick',
+        usage: VehicleUsage.personal,
+        currentKm: 30000,
+      );
+      await controller.recordVisit(
+        vehicleId: car.id,
+        km: 30500,
+        partIds: ['engine_oil'],
+        nextOilChangeKm: 36500,
+      );
+      final vehicle = controller.primaryVehicle!;
+      expect(vehicle.oilIntervalKm, 6000);
+      final oil = controller
+          .planFor(vehicle)!
+          .all
+          .firstWhere((d) => d.partId == 'engine_oil');
+      expect(oil.dueKm, 36500);
+    });
+
+    test('a sticker without an oil change is ignored', () async {
+      final car = await controller.addVehicle(
+        modelId: 'quick',
+        usage: VehicleUsage.personal,
+        currentKm: 30000,
+      );
+      await controller.recordVisit(
+        vehicleId: car.id,
+        km: 30500,
+        partIds: ['air_filter'],
+        nextOilChangeKm: 36500,
+      );
+      expect(controller.primaryVehicle!.oilIntervalKm, isNull);
+    });
+  });
+
+  group('documents', () {
+    test('remind within 30 days and after expiry', () async {
+      final car = await controller.addVehicle(
+        modelId: 'quick',
+        usage: VehicleUsage.personal,
+        currentKm: 30000,
+      );
+      await controller.setDocumentExpiry(
+        car.id,
+        VehicleDocument.insurance,
+        DateTime(2027, 3, 1),
+      );
+      await controller.setDocumentExpiry(
+        car.id,
+        VehicleDocument.inspection,
+        DateTime(2026, 12, 10),
+      );
+      var vehicle = controller.primaryVehicle!;
+      expect(
+        controller.documentsFor(vehicle).map((d) => d.document),
+        [VehicleDocument.inspection, VehicleDocument.insurance],
+      );
+      expect(controller.documentsToRenew(vehicle).single.daysLeft, 13);
+
+      now = DateTime(2026, 12, 12);
+      final expired = controller.documentsToRenew(vehicle).single;
+      expect(expired.expired, isTrue);
+
+      await controller.setDocumentExpiry(
+        car.id,
+        VehicleDocument.inspection,
+        null,
+      );
+      vehicle = controller.primaryVehicle!;
+      expect(controller.documentsFor(vehicle), hasLength(1));
+    });
+
+    test('survive saving and loading', () async {
+      final car = await controller.addVehicle(
+        modelId: 'quick',
+        usage: VehicleUsage.personal,
+        currentKm: 30000,
+      );
+      await controller.setDocumentExpiry(
+        car.id,
+        VehicleDocument.insurance,
+        DateTime(2027, 3, 1),
+      );
+      await controller.setOilInterval(car.id, 6000);
+      final json = jsonDecode(jsonEncode(controller.primaryVehicle!.toJson()));
+      final restored = Vehicle.fromJson(json as Map<String, Object?>);
+      expect(restored.oilIntervalKm, 6000);
+      expect(
+        restored.documentExpiry[VehicleDocument.insurance],
+        DateTime(2027, 3, 1),
+      );
+    });
+  });
 }

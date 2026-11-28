@@ -22,6 +22,23 @@ class VisitSummary {
   final int? costRial;
 }
 
+/// A document the user entered, with how many days are left on it.
+class DocumentStatus {
+  const DocumentStatus({
+    required this.document,
+    required this.expiry,
+    required this.daysLeft,
+  });
+
+  final VehicleDocument document;
+  final DateTime expiry;
+
+  /// Negative once the document has expired.
+  final int daysLeft;
+
+  bool get expired => daysLeft < 0;
+}
+
 /// App state for the garage: loads once, applies user actions, saves after
 /// each change and notifies listeners. Screens never touch storage directly.
 class GarageController extends ChangeNotifier {
@@ -174,6 +191,60 @@ class GarageController extends ChangeNotifier {
     await _commit(_data.copyWith(vehicles: _replace(updated)));
   }
 
+  /// Accepted range for a user-set oil interval, in km.
+  static const minOilIntervalKm = 1000;
+  static const maxOilIntervalKm = 30000;
+
+  /// Days before a document expires when the home screen starts reminding.
+  static const documentReminderDays = 30;
+
+  /// Sets the user's own oil-change interval, or clears it with null so the
+  /// factory figure and oil type apply again. Out-of-range values are
+  /// ignored.
+  Future<void> setOilInterval(String vehicleId, int? km) async {
+    if (km != null && (km < minOilIntervalKm || km > maxOilIntervalKm)) {
+      return;
+    }
+    final updated = _vehicle(vehicleId).copyWith(oilIntervalKm: km);
+    await _commit(_data.copyWith(vehicles: _replace(updated)));
+  }
+
+  /// Sets or (with null) clears a document's expiry date.
+  Future<void> setDocumentExpiry(
+    String vehicleId,
+    VehicleDocument document,
+    DateTime? expiry,
+  ) async {
+    final vehicle = _vehicle(vehicleId);
+    final documents = {...vehicle.documentExpiry};
+    if (expiry == null) {
+      documents.remove(document);
+    } else {
+      documents[document] = DateTime(expiry.year, expiry.month, expiry.day);
+    }
+    final updated = vehicle.copyWith(documentExpiry: documents);
+    await _commit(_data.copyWith(vehicles: _replace(updated)));
+  }
+
+  /// Every entered document, soonest expiry first.
+  List<DocumentStatus> documentsFor(Vehicle vehicle) {
+    final today = _clock();
+    return [
+      for (final e in vehicle.documentExpiry.entries)
+        DocumentStatus(
+          document: e.key,
+          expiry: e.value,
+          daysLeft: MaintenancePlanner.daysBetween(today, e.value),
+        ),
+    ]..sort((a, b) => a.expiry.compareTo(b.expiry));
+  }
+
+  /// Documents expired or expiring within [documentReminderDays].
+  List<DocumentStatus> documentsToRenew(Vehicle vehicle) => [
+    for (final d in documentsFor(vehicle))
+      if (d.daysLeft <= documentReminderDays) d,
+  ];
+
   /// Adds what the dashboard shows now. Values below the last reading are
   /// rejected by the UI; here they are ignored so data stays consistent.
   Future<void> addReading(String vehicleId, int km) async {
@@ -196,6 +267,7 @@ class GarageController extends ChangeNotifier {
     required List<String> partIds,
     DateTime? date,
     int? costRial,
+    int? nextOilChangeKm,
   }) async {
     if (partIds.isEmpty) return;
     final when = date ?? _clock();
@@ -212,17 +284,25 @@ class GarageController extends ChangeNotifier {
           costRial: i == 0 ? costRial : null,
         ),
     ];
-    final vehicle = _vehicle(vehicleId);
-    final vehicles = km > vehicle.lastReading.km
-        ? _replace(
-            vehicle.copyWith(
-              readings: [
-                ...vehicle.readings,
-                OdometerReading(km: km, date: _clock()),
-              ],
-            ),
-          )
-        : _data.vehicles;
+    var vehicle = _vehicle(vehicleId);
+    // The new oil sticker tells us the interval this oil runs for; it then
+    // applies to this change and the ones after it.
+    final stickerInterval = nextOilChangeKm == null ? null : nextOilChangeKm - km;
+    if (partIds.contains(MaintenancePlanner.engineOilPartId) &&
+        stickerInterval != null &&
+        stickerInterval >= minOilIntervalKm &&
+        stickerInterval <= maxOilIntervalKm) {
+      vehicle = vehicle.copyWith(oilIntervalKm: stickerInterval);
+    }
+    if (km > vehicle.lastReading.km) {
+      vehicle = vehicle.copyWith(
+        readings: [
+          ...vehicle.readings,
+          OdometerReading(km: km, date: _clock()),
+        ],
+      );
+    }
+    final vehicles = _replace(vehicle);
     await _commit(
       _data.copyWith(
         records: [..._data.records, ...records],

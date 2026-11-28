@@ -7,6 +7,7 @@ import '../../catalog/domain/body_type.dart';
 import '../application/garage_controller.dart';
 import '../domain/maintenance_planner.dart';
 import '../domain/vehicle.dart';
+import 'document_actions.dart';
 import 'emergency_sheet.dart';
 import 'service_sheets.dart';
 import 'widgets/car_illustration.dart';
@@ -72,6 +73,18 @@ class HomeTab extends StatelessWidget {
                   ),
                 ),
               ],
+              for (final status in controller.documentsToRenew(vehicle)) ...[
+                const SizedBox(height: 12),
+                _DocumentAlert(
+                  status: status,
+                  onRenewed: () => pickDocumentExpiry(
+                    context,
+                    controller,
+                    vehicle,
+                    status.document,
+                  ),
+                ),
+              ],
               if (plan?.nextVisit != null) ...[
                 const SizedBox(height: 12),
                 _NextVisitCard(
@@ -125,6 +138,35 @@ class HomeTab extends StatelessWidget {
                   ),
                 ),
               ],
+              const SizedBox(height: 24),
+              Text(
+                'بیمه و معاینه‌ی فنی',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    for (final document in VehicleDocument.values)
+                      _DocumentRow(
+                        document: document,
+                        status: controller
+                            .documentsFor(vehicle)
+                            .where((d) => d.document == document)
+                            .firstOrNull,
+                        onTap: () => pickDocumentExpiry(
+                          context,
+                          controller,
+                          vehicle,
+                          document,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
               if (group != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 20),
@@ -489,6 +531,92 @@ class _LaterRow extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Insurance or inspection running out soon, or already expired.
+class _DocumentAlert extends StatelessWidget {
+  const _DocumentAlert({required this.status, required this.onRenewed});
+
+  final DocumentStatus status;
+  final VoidCallback onRenewed;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final expired = status.expired;
+    final foreground = expired ? BrandColors.danger : BrandColors.amberText;
+    final title = expired
+        ? '${status.document.nameFa} تمام شده'
+        : status.daysLeft == 0
+        ? '${status.document.nameFa} امروز تمام می‌شود'
+        : '${status.document.nameFa} ${PersianFormat.daysFromNow(status.daysLeft)} تمام می‌شود';
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      decoration: BoxDecoration(
+        color: expired ? const Color(0xFFFDECEA) : BrandColors.amberBg,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(documentIcon(status.document), color: foreground),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: text.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: foreground,
+                  ),
+                ),
+                Text(
+                  'اعتبار تا ${PersianFormat.date(status.expiry)}',
+                  style: text.bodySmall?.copyWith(color: foreground),
+                ),
+              ],
+            ),
+          ),
+          TextButton(onPressed: onRenewed, child: const Text('تمدید کردم')),
+        ],
+      ),
+    );
+  }
+}
+
+class _DocumentRow extends StatelessWidget {
+  const _DocumentRow({
+    required this.document,
+    required this.status,
+    required this.onTap,
+  });
+
+  final VehicleDocument document;
+  final DocumentStatus? status;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = this.status;
+    return ListTile(
+      onTap: onTap,
+      leading: Icon(documentIcon(document), color: BrandColors.violet),
+      title: Text(document.nameFa),
+      subtitle: Text(
+        status == null
+            ? 'تاریخ پایانش را ثبت کن تا یادت بیندازیم'
+            : status.expired
+            ? 'تمام شده · ${PersianFormat.date(status.expiry)}'
+            : 'تا ${PersianFormat.date(status.expiry)} · '
+                  '${PersianFormat.roughDuration(status.daysLeft)} مانده',
+      ),
+      trailing: Icon(
+        status == null ? Icons.add : Icons.edit_outlined,
+        color: BrandColors.violet,
       ),
     );
   }

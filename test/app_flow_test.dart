@@ -132,6 +132,54 @@ void main() {
     expect(find.text('۳۰٬۰۰۰ کیلومتر'), findsOneWidget);
   });
 
+  testWidgets('a new oil sticker sets the next change and its interval', (
+    tester,
+  ) async {
+    final controller = await _pumpApp(tester);
+    await _tap(tester, find.text('شروع کنیم'));
+    await _pickModel(tester, 'کوییک', 'کوییک');
+    await tester.enterText(find.byKey(const Key('current-km')), '30000');
+    await _tap(tester, find.text('برچسب ندارم'));
+    await _continueAndSkipHistory(tester);
+
+    await _tap(tester, find.text('سرویس را انجام دادم'));
+    await tester.enterText(find.byKey(const Key('visit-km')), '30000');
+    await tester.enterText(find.byKey(const Key('visit-sticker')), '36000');
+    await _tap(tester, find.text('ذخیره'));
+
+    expect(find.textContaining('۳۶٬۰۰۰', findRichText: true), findsWidgets);
+    expect(controller.primaryVehicle!.oilIntervalKm, 6000);
+  });
+
+  testWidgets('settings: own oil interval and insurance reminder', (
+    tester,
+  ) async {
+    await _pumpApp(tester);
+    await _tap(tester, find.text('شروع کنیم'));
+    await _pickModel(tester, 'دنا', 'دنا پلاس');
+    await tester.enterText(find.byKey(const Key('current-km')), '62400');
+    await tester.enterText(find.byKey(const Key('sticker-km')), '72000');
+    await _continueAndSkipHistory(tester);
+
+    await _tap(tester, find.text('تنظیمات'));
+    await _tap(tester, find.byKey(const Key('custom-oil-switch')));
+    await tester.enterText(find.byKey(const Key('oil-interval')), '600');
+    await _tap(tester, find.text('ثبت'));
+    expect(find.textContaining('عددی بین'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('oil-interval')), '۶۰۰۰');
+    await _tap(tester, find.text('ثبت'));
+    expect(find.text('هر ۶٬۰۰۰ کیلومتر'), findsOneWidget);
+
+    // The sticker put the last change at 62,000 (72,000 − 10,000); a 6,000
+    // interval now makes it due at 68,000.
+    await _tap(tester, find.byKey(const Key('document-insurance')));
+    await _tap(tester, find.text('ثبت'));
+
+    await _tap(tester, find.text('خانه'));
+    expect(find.textContaining('۶۸٬۰۰۰', findRichText: true), findsWidgets);
+    expect(find.text('بیمه‌ی شخص ثالث امروز تمام می‌شود'), findsOneWidget);
+  });
+
   testWidgets('model search folds Arabic letters and handles no results', (
     tester,
   ) async {
