@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:karyad/app/app.dart';
 import 'package:karyad/features/garage/application/garage_controller.dart';
 import 'package:karyad/features/garage/data/garage_repository.dart';
+import 'package:karyad/features/garage/presentation/settings_tab.dart';
 import 'package:karyad/features/garage/domain/vehicle.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -212,6 +213,16 @@ void main() {
 
     // Removing one car from settings keeps the other.
     await _tap(tester, find.text('تنظیمات'));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('remove-vehicle')),
+      300,
+      scrollable: find
+          .descendant(
+            of: find.byType(SettingsTab),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     await _tap(tester, find.byKey(const Key('remove-vehicle')));
     await _tap(tester, find.text('پاک کن'));
     expect(controller.vehicles.single.modelId, 'dena-plus');
