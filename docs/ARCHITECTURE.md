@@ -57,16 +57,22 @@ user can check against the dashboard and the calendar.
 - **No history → factory schedule.** Km follow the manufacturer's milestones
   from 0 (an 80,000 km belt on a 62,000 km car is due at 80,000); months
   count from the day the car was added.
-- **Oil sticker.** At onboarding the user may type the number on the
-  oil-change sticker; the oil target is exactly that number.
+- **Oil sticker.** At onboarding, or when logging an oil change, the user
+  may type the number on the oil-change sticker. It is stored on the record
+  (`nextDueKm`) and is the oil target as given; interval settings only
+  apply from the next change.
+- **Gearbox.** Each car has a transmission (manual by default). Gearbox-oil
+  items for another transmission are skipped. Onboarding and settings ask
+  only when the car's group has an automatic or CVT item.
 - **Odometer readings.** The user types the dashboard value (prompted every
   14 days, 7 for work cars). From two or more readings a week apart the app
   learns km/day and adds «حدود ۳ هفته دیگر»; it never asks for km/day.
 - **Visits.** Items due within 2,000 km (or 45 days for time-only items) of
   the most urgent one are grouped into the next visit, logged together.
   The visit's target comes from items with a recorded basis (sticker or
-  logged service) when it has any; factory-milestone estimates join it but
-  never pull a known target earlier.
+  logged service) or that are already overdue, when it has any;
+  factory-milestone estimates join it but never pull a known target
+  earlier. The visit's lead (first item, progress bar) is one of those.
 - **Severe schedule.** Work use (taxi, ride-hailing) → severe intervals for
   every item, falling back to normal values where severe ones are missing.
   Mineral / semi-synthetic oil → severe oil interval, capped at 5,000 /
@@ -80,6 +86,14 @@ user can check against the dashboard and the calendar.
   after it, an alert with «تمدید کردم» appears at the top.
 - **Status.** Overdue when km or date passed; «نزدیک» within 1,000 km or
   30 days.
+
+## Storage safety
+
+The garage is one JSON document with a copy of the previous save. If the
+current document cannot be read, the previous one loads, the unreadable
+text is kept under `garage.v1.unreadable`, and the next save does not copy
+it over the good backup. If neither can be read the app starts fresh
+rather than hanging.
 
 ## Catalog sync
 

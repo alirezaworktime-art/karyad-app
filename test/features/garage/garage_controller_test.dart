@@ -173,6 +173,29 @@ void main() {
     expect(legacy.color, CarColor.white);
   });
 
+  test('gearbox choices come from the catalog group', () {
+    expect(controller.transmissionChoices('dena-plus'), [
+      Transmission.manual,
+      Transmission.automatic,
+    ]);
+    expect(controller.transmissionChoices('shahin'), [
+      Transmission.manual,
+      Transmission.cvt,
+    ]);
+    // Only manual gearboxes in the 405 group: nothing to ask.
+    expect(controller.transmissionChoices('405'), isEmpty);
+    final manual = controller.startingHistoryItems('dena-plus');
+    expect(
+      manual.map((i) => i.partId),
+      isNot(contains('automatic_gearbox_oil')),
+    );
+    final automatic = controller.startingHistoryItems(
+      'dena-plus',
+      transmission: Transmission.automatic,
+    );
+    expect(automatic.map((i) => i.partId), contains('automatic_gearbox_oil'));
+  });
+
   group('own oil interval', () {
     test('replaces the factory figure and the oil-type cap', () async {
       final car = await controller.addVehicle(
@@ -180,25 +203,28 @@ void main() {
         usage: VehicleUsage.personal,
         currentKm: 62400,
         oilType: OilType.mineral,
-        nextOilChangeKm: 67000,
       );
-      await controller.setOilInterval(car.id, 6000);
-      var oil = controller
+      await controller.recordVisit(
+        vehicleId: car.id,
+        km: 62400,
+        partIds: ['engine_oil'],
+      );
+      int oilDue() => controller
           .planFor(controller.primaryVehicle!)!
           .all
-          .firstWhere((d) => d.partId == 'engine_oil');
-      // Sticker 67,000 with the mineral 5,000 cap → last change at 62,000.
-      expect(oil.dueKm, 68000);
+          .firstWhere((d) => d.partId == 'engine_oil')
+          .dueKm!;
+      // Mineral oil caps Dena's interval at 5,000.
+      expect(oilDue(), 67400);
+
+      await controller.setOilInterval(car.id, 6000);
+      expect(oilDue(), 68400);
 
       await controller.setOilInterval(car.id, 50);
       expect(controller.primaryVehicle!.oilIntervalKm, 6000);
 
       await controller.setOilInterval(car.id, null);
-      oil = controller
-          .planFor(controller.primaryVehicle!)!
-          .all
-          .firstWhere((d) => d.partId == 'engine_oil');
-      expect(oil.dueKm, 67000);
+      expect(oilDue(), 67400);
     });
 
     test('a new sticker at an oil change sets the interval', () async {

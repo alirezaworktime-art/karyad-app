@@ -28,12 +28,14 @@ class _CarDetails {
     required this.nextOilChangeKm,
     required this.color,
     required this.work,
+    required this.transmission,
   });
 
   final int currentKm;
   final int? nextOilChangeKm;
   final CarColor color;
   final bool work;
+  final Transmission transmission;
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
@@ -51,6 +53,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       currentKm: details.currentKm,
       color: details.color,
       nextOilChangeKm: details.nextOilChangeKm,
+      transmission: details.transmission,
       lastReplacedKm: lastReplacedKm,
     );
   }
@@ -82,6 +85,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         controller: widget.controller,
         modelId: _modelId!,
         currentKm: _details!.currentKm,
+        transmission: _details!.transmission,
         saving: _saving,
         onBack: () => setState(() => _step = 2),
         onFinish: _finish,
@@ -449,6 +453,7 @@ class _DetailsStepState extends State<_DetailsStep> {
   bool _noSticker = false;
   bool _work = false;
   CarColor _color = CarColor.white;
+  Transmission _transmission = Transmission.manual;
   String? _kmError;
   String? _stickerError;
 
@@ -466,6 +471,7 @@ class _DetailsStepState extends State<_DetailsStep> {
     }
     _color = initial.color;
     _work = initial.work;
+    _transmission = initial.transmission;
   }
 
   @override
@@ -487,6 +493,12 @@ class _DetailsStepState extends State<_DetailsStep> {
       stickerError = 'عدد برچسب را بنویس یا «برچسب ندارم» را بزن';
     } else if (sticker != null && km != null && sticker <= km) {
       stickerError = 'این عدد از کیلومترشمار کمتر است؛ یعنی وقت تعویض روغن گذشته. «برچسب ندارم» را بزن.';
+    } else if (sticker != null &&
+        km != null &&
+        sticker - km > GarageController.maxOilIntervalKm) {
+      stickerError =
+          'این عدد بیش از ${PersianFormat.number(GarageController.maxOilIntervalKm)} '
+          'کیلومتر جلوتر از کیلومترشمار است؛ دوباره روی برچسب نگاه کن.';
     }
     if (kmError != null || stickerError != null) {
       setState(() {
@@ -501,6 +513,7 @@ class _DetailsStepState extends State<_DetailsStep> {
         nextOilChangeKm: sticker,
         color: _color,
         work: _work,
+        transmission: _transmission,
       ),
     );
   }
@@ -561,7 +574,7 @@ class _DetailsStepState extends State<_DetailsStep> {
                 style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 onChanged: (_) => setState(() => _kmError = null),
                 decoration: InputDecoration(
-                  hintText: '۶۲٬۴۰۰',
+                  hintText: 'مثلاً ۶۲٬۴۰۰',
                   suffixText: 'کیلومتر',
                   errorText: _kmError,
                   errorMaxLines: 3,
@@ -611,6 +624,27 @@ class _DetailsStepState extends State<_DetailsStep> {
                     ),
                 ],
               ),
+              if (widget.controller
+                  .transmissionChoices(widget.modelId)
+                  .isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Text('گیربکس', style: label),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final t in widget.controller.transmissionChoices(
+                      widget.modelId,
+                    ))
+                      ChoiceChip(
+                        label: Text(t.nameFa),
+                        selected: t == _transmission,
+                        onSelected: (_) => setState(() => _transmission = t),
+                      ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 20),
               Card(
                 child: SwitchListTile(
@@ -690,6 +724,7 @@ class _HistoryStep extends StatefulWidget {
     required this.controller,
     required this.modelId,
     required this.currentKm,
+    required this.transmission,
     required this.saving,
     required this.onBack,
     required this.onFinish,
@@ -698,6 +733,7 @@ class _HistoryStep extends StatefulWidget {
   final GarageController controller;
   final String modelId;
   final int currentKm;
+  final Transmission transmission;
   final bool saving;
   final VoidCallback onBack;
   final ValueChanged<Map<String, int>> onFinish;
@@ -708,7 +744,7 @@ class _HistoryStep extends StatefulWidget {
 
 class _HistoryStepState extends State<_HistoryStep> {
   late final List<MaintenanceItem> _items = widget.controller
-      .startingHistoryItems(widget.modelId);
+      .startingHistoryItems(widget.modelId, transmission: widget.transmission);
   late final Map<String, TextEditingController> _fields = {
     for (final item in _items) item.partId: TextEditingController(),
   };

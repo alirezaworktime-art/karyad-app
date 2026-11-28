@@ -16,6 +16,27 @@ enum OilType {
   final int? maxKm;
 }
 
+/// Gearbox type. Catalog groups list a gearbox-oil item per type; only the
+/// one matching the car applies.
+enum Transmission {
+  manual('دستی'),
+  automatic('اتوماتیک'),
+  cvt('اتوماتیک CVT');
+
+  const Transmission(this.nameFa);
+
+  final String nameFa;
+
+  /// The gearbox type a catalog part belongs to, or null for parts that
+  /// apply to every car (including the generic "gearbox oil").
+  static Transmission? ofPart(String partId) => switch (partId) {
+    'manual_gearbox_oil' => Transmission.manual,
+    'automatic_gearbox_oil' => Transmission.automatic,
+    'cvt_oil' => Transmission.cvt,
+    _ => null,
+  };
+}
+
 /// Paperwork with an expiry date that the app reminds about.
 enum VehicleDocument {
   insurance('بیمه‌ی شخص ثالث'),
@@ -73,6 +94,7 @@ class Vehicle {
     this.nickname,
     this.severeConditions = false,
     this.oilIntervalKm,
+    this.transmission = Transmission.manual,
     Map<VehicleDocument, DateTime> documentExpiry = const {},
   }) : assert(readings.isNotEmpty, 'a vehicle starts with one reading'),
        documentExpiry = Map.unmodifiable(documentExpiry),
@@ -92,6 +114,10 @@ class Vehicle {
   final VehicleUsage usage;
   final OilType oilType;
   final CarColor color;
+
+  /// Most Iranian cars are manual; data saved before this field existed
+  /// loads as manual and can be changed in settings.
+  final Transmission transmission;
 
   /// Every odometer value the user entered, oldest first. The first one is
   /// the day the car was added.
@@ -131,6 +157,7 @@ class Vehicle {
     CarColor? color,
     List<OdometerReading>? readings,
     bool? severeConditions,
+    Transmission? transmission,
     Object? oilIntervalKm = _keep,
     Map<VehicleDocument, DateTime>? documentExpiry,
   }) => Vehicle(
@@ -142,6 +169,7 @@ class Vehicle {
     color: color ?? this.color,
     readings: readings ?? this.readings,
     severeConditions: severeConditions ?? this.severeConditions,
+    transmission: transmission ?? this.transmission,
     oilIntervalKm: identical(oilIntervalKm, _keep)
         ? this.oilIntervalKm
         : oilIntervalKm as int?,
@@ -158,6 +186,7 @@ class Vehicle {
     'readings': [for (final r in readings) r.toJson()],
     'severeConditions': severeConditions,
     'oilIntervalKm': oilIntervalKm,
+    'transmission': transmission.name,
     'documentExpiry': {
       for (final e in documentExpiry.entries)
         e.key.name: e.value.toIso8601String(),
@@ -181,6 +210,7 @@ class Vehicle {
             ),
           ];
     final colorName = json['color'] as String?;
+    final transmissionName = json['transmission'] as String?;
     final rawDocuments =
         json['documentExpiry'] as Map<String, Object?>? ?? const {};
     return Vehicle(
@@ -195,6 +225,10 @@ class Vehicle {
       readings: readings,
       severeConditions: json['severeConditions'] as bool? ?? false,
       oilIntervalKm: json['oilIntervalKm'] as int?,
+      transmission: Transmission.values
+              .where((t) => t.name == transmissionName)
+              .firstOrNull ??
+          Transmission.manual,
       documentExpiry: {
         for (final e in rawDocuments.entries)
           if (VehicleDocument.values.any((d) => d.name == e.key))
@@ -218,6 +252,7 @@ class ServiceRecord {
     this.costRial,
     this.note,
     this.estimated = false,
+    this.nextDueKm,
   });
 
   final String id;
@@ -237,6 +272,10 @@ class ServiceRecord {
   /// oil-change sticker at onboarding).
   final bool estimated;
 
+  /// The km the mechanic wrote for the next change (the oil sticker). When
+  /// set it is the target as given, whatever interval settings say.
+  final int? nextDueKm;
+
   Map<String, Object?> toJson() => {
     'id': id,
     'vehicleId': vehicleId,
@@ -247,6 +286,7 @@ class ServiceRecord {
     'costRial': costRial,
     'note': note,
     'estimated': estimated,
+    'nextDueKm': nextDueKm,
   };
 
   factory ServiceRecord.fromJson(Map<String, Object?> json) => ServiceRecord(
@@ -259,5 +299,6 @@ class ServiceRecord {
     costRial: json['costRial'] as int?,
     note: json['note'] as String?,
     estimated: json['estimated'] as bool? ?? false,
+    nextDueKm: json['nextDueKm'] as int?,
   );
 }

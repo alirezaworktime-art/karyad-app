@@ -92,15 +92,37 @@ class GarageController extends ChangeNotifier {
   /// Parts whose last replacement the user can tell us while adding a car:
   /// everything replaced on a km interval, except the oil (the sticker
   /// covers it). Without an answer a part follows the factory milestones.
-  List<MaintenanceItem> startingHistoryItems(String modelId) {
+  List<MaintenanceItem> startingHistoryItems(
+    String modelId, {
+    Transmission transmission = Transmission.manual,
+  }) {
     final group = catalog.groupForModel(modelId);
     if (group == null) return const [];
     return [
       for (final item in group.items)
         if (item.action == MaintenanceAction.replace &&
             item.partId != MaintenancePlanner.engineOilPartId &&
+            (Transmission.ofPart(item.partId) ?? transmission) ==
+                transmission &&
             (item.normal?.km ?? item.severe?.km) != null)
           item,
+    ];
+  }
+
+  /// Gearbox types worth asking about for this model: manual plus every
+  /// automatic kind its catalog group has an item for. Empty when the
+  /// group only knows manual gearboxes, so there is nothing to ask.
+  List<Transmission> transmissionChoices(String modelId) {
+    final group = catalog.groupForModel(modelId);
+    if (group == null) return const [];
+    final kinds = {
+      for (final item in group.items) ?Transmission.ofPart(item.partId),
+    }..remove(Transmission.manual);
+    if (kinds.isEmpty) return const [];
+    return [
+      Transmission.manual,
+      for (final t in Transmission.values)
+        if (kinds.contains(t)) t,
     ];
   }
 
@@ -115,6 +137,7 @@ class GarageController extends ChangeNotifier {
     OilType oilType = OilType.fullSynthetic,
     CarColor color = CarColor.white,
     int? nextOilChangeKm,
+    Transmission transmission = Transmission.manual,
     Map<String, int> lastReplacedKm = const {},
   }) async {
     final now = _clock();
@@ -124,6 +147,7 @@ class GarageController extends ChangeNotifier {
       usage: usage,
       oilType: oilType,
       color: color,
+      transmission: transmission,
       readings: [OdometerReading(km: currentKm, date: now)],
     );
 
@@ -142,6 +166,7 @@ class GarageController extends ChangeNotifier {
           km: lastChange < 0 ? 0 : lastChange,
           date: now,
           estimated: true,
+          nextDueKm: nextOilChangeKm,
         ),
       );
     }
@@ -185,9 +210,14 @@ class GarageController extends ChangeNotifier {
     CarColor? color,
     VehicleUsage? usage,
     OilType? oilType,
+    Transmission? transmission,
   }) async {
-    final updated = _vehicle(vehicleId)
-        .copyWith(color: color, usage: usage, oilType: oilType);
+    final updated = _vehicle(vehicleId).copyWith(
+      color: color,
+      usage: usage,
+      oilType: oilType,
+      transmission: transmission,
+    );
     await _commit(_data.copyWith(vehicles: _replace(updated)));
   }
 
@@ -272,6 +302,16 @@ class GarageController extends ChangeNotifier {
     if (partIds.isEmpty) return;
     final when = date ?? _clock();
     final visitId = _newId('visit');
+    // The new oil sticker is the next target as given, and tells us the
+    // interval this oil runs for, which then applies to later changes too.
+    final stickerInterval = nextOilChangeKm == null
+        ? null
+        : nextOilChangeKm - km;
+    final validSticker =
+        partIds.contains(MaintenancePlanner.engineOilPartId) &&
+        stickerInterval != null &&
+        stickerInterval >= minOilIntervalKm &&
+        stickerInterval <= maxOilIntervalKm;
     final records = [
       for (var i = 0; i < partIds.length; i++)
         ServiceRecord(
@@ -282,18 +322,14 @@ class GarageController extends ChangeNotifier {
           date: when,
           visitId: visitId,
           costRial: i == 0 ? costRial : null,
+          nextDueKm:
+              validSticker && partIds[i] == MaintenancePlanner.engineOilPartId
+              ? nextOilChangeKm
+              : null,
         ),
     ];
     var vehicle = _vehicle(vehicleId);
-    // The new oil sticker tells us the interval this oil runs for; it then
-    // applies to this change and the ones after it.
-    final stickerInterval = nextOilChangeKm == null
-        ? null
-        : nextOilChangeKm - km;
-    if (partIds.contains(MaintenancePlanner.engineOilPartId) &&
-        stickerInterval != null &&
-        stickerInterval >= minOilIntervalKm &&
-        stickerInterval <= maxOilIntervalKm) {
+    if (validSticker) {
       vehicle = vehicle.copyWith(oilIntervalKm: stickerInterval);
     }
     if (km > vehicle.lastReading.km) {

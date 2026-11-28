@@ -4,6 +4,7 @@ import '../../../app/theme.dart';
 import '../../../core/format/persian_format.dart';
 import '../../../core/ui/responsive_body.dart';
 import '../../catalog/domain/body_type.dart';
+import '../../catalog/domain/catalog.dart';
 import '../application/garage_controller.dart';
 import '../domain/maintenance_planner.dart';
 import '../domain/vehicle.dart';
@@ -31,6 +32,11 @@ class HomeTab extends StatelessWidget {
         final maker = group == null ? null : catalog.maker(group.makerId);
         final plan = controller.planFor(vehicle);
         String partName(String id) => catalog.part(id)?.nameFa ?? id;
+        // Inspect-only items say so, so nobody pays for a replacement.
+        String dueName(MaintenanceDue d) =>
+            d.item.action == MaintenanceAction.inspect
+            ? 'بازدید ${partName(d.partId)}'
+            : partName(d.partId);
 
         return ResponsiveBody(
           child: ListView(
@@ -92,7 +98,7 @@ class HomeTab extends StatelessWidget {
                   odometerKm: plan.odometerKm,
                   learnedDailyKm: vehicle.learnedDailyKm,
                   now: controller.now,
-                  partName: partName,
+                  dueName: dueName,
                   onDone: () => showVisitSheet(
                     context,
                     controller: controller,
@@ -125,7 +131,7 @@ class HomeTab extends StatelessWidget {
                         if (i > 0) const Divider(),
                         _LaterRow(
                           due: plan.later[i],
-                          name: partName(plan.later[i].partId),
+                          name: dueName(plan.later[i]),
                           onTap: () => showVisitSheet(
                             context,
                             controller: controller,
@@ -190,7 +196,7 @@ String targetText(MaintenanceDue due, {bool short = false}) {
   final date = due.dueDate;
   if (km != null && date != null) {
     return short
-        ? 'در ${PersianFormat.number(km)}'
+        ? 'در ${PersianFormat.number(km)} · تا ${PersianFormat.monthYear(date)}'
         : 'در ${PersianFormat.km(km)} یا تا ${PersianFormat.date(date)}';
   }
   if (km != null) return 'در ${PersianFormat.number(km)}';
@@ -351,7 +357,7 @@ class _NextVisitCard extends StatelessWidget {
   final int odometerKm;
   final double? learnedDailyKm;
   final DateTime now;
-  final String Function(String) partName;
+  final String Function(MaintenanceDue) dueName;
   final VoidCallback onDone;
 
   @override
@@ -365,7 +371,7 @@ class _NextVisitCard extends StatelessWidget {
     };
     final km = visit.dueKm;
     final date = visit.dueDate;
-    final lead = visit.items.first;
+    final lead = visit.lead;
     final pace = learnedDailyKm;
     final kmLeft = km == null ? null : km - odometerKm;
 
@@ -439,10 +445,10 @@ class _NextVisitCard extends StatelessWidget {
               runSpacing: 8,
               children: [
                 for (final d in visit.items)
-                  Chip(label: Text(partName(d.partId))),
+                  Chip(label: Text(dueName(d))),
               ],
             ),
-            if (lead.intervalKm != null) ...[
+            if (lead.periodKm != null) ...[
               const SizedBox(height: 16),
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
@@ -457,7 +463,7 @@ class _NextVisitCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                _progressText(lead, kmLeft, pace),
+                _progressText(lead, kmLeft, pace, date),
                 style: text.bodySmall?.copyWith(color: BrandColors.muted),
               ),
             ],
@@ -475,14 +481,22 @@ class _NextVisitCard extends StatelessWidget {
     );
   }
 
-  String _progressText(MaintenanceDue lead, int? kmLeft, double? pace) {
+  String _progressText(
+    MaintenanceDue lead,
+    int? kmLeft,
+    double? pace,
+    DateTime? date,
+  ) {
     if (kmLeft != null && kmLeft <= 0) {
       return '${PersianFormat.km(-kmLeft)} از موعد گذشته';
+    }
+    if (date != null && MaintenancePlanner.daysBetween(now, date) <= 0) {
+      return 'تاریخش گذشته؛ حتی اگر کم رفته‌ای، وقت سرویس است.';
     }
     final used = odometerKm - lead.periodStartKm;
     final base =
         '${PersianFormat.number(used < 0 ? 0 : used)} از '
-        '${PersianFormat.km(lead.intervalKm!)} این دوره طی شده';
+        '${PersianFormat.km(lead.periodKm!)} این دوره طی شده';
     if (kmLeft != null && pace != null && pace > 0) {
       return '$base · حدود ${PersianFormat.roughDuration((kmLeft / pace).round())} دیگر';
     }
@@ -520,11 +534,14 @@ class _LaterRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Text(
-                targetText(due, short: true),
-                style: text.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: color,
+              Flexible(
+                child: Text(
+                  targetText(due, short: true),
+                  textAlign: TextAlign.end,
+                  style: text.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
                 ),
               ),
             ],

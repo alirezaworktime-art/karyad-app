@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../app/theme.dart';
 import '../../../core/format/persian_format.dart';
+import '../../../core/ui/jalali_date_picker.dart';
 import '../application/garage_controller.dart';
 import '../domain/maintenance_planner.dart';
 import '../domain/vehicle.dart';
@@ -37,6 +38,34 @@ Future<void> showReadingSheet(
     builder: (context) =>
         _ReadingSheet(controller: controller, vehicle: vehicle),
   );
+}
+
+/// A jump this large from the last reading is more likely a typo (an extra
+/// digit) than real driving, so the user is asked to confirm it.
+const _suspiciousJumpKm = 30000;
+
+Future<bool> _confirmLargeJump(BuildContext context, int from, int to) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('این عدد درست است؟'),
+      content: Text(
+        '${PersianFormat.km(to - from)} بیشتر از عدد قبلی '
+        '(${PersianFormat.number(from)}) است. اگر رقم اضافه زده‌ای، اصلاحش کن.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('اصلاح می‌کنم'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('درست است'),
+        ),
+      ],
+    ),
+  );
+  return ok ?? false;
 }
 
 EdgeInsets _sheetPadding(BuildContext context) => EdgeInsets.fromLTRB(
@@ -78,6 +107,10 @@ class _ReadingSheetState extends State<_ReadingSheet> {
         () => _error =
             'از عدد قبلی (${PersianFormat.number(last)}) کمتر است؛ دوباره نگاه کن.',
       );
+      return;
+    }
+    if (km - last > _suspiciousJumpKm &&
+        !await _confirmLargeJump(context, last, km)) {
       return;
     }
     await widget.controller.addReading(widget.vehicle.id, km);
@@ -148,6 +181,7 @@ class _VisitSheetState extends State<_VisitSheet> {
   final _sticker = TextEditingController();
   late final Set<String> _selected = {...widget.preselected};
   bool _showAll = false;
+  late DateTime _date = widget.controller.now;
   String? _kmError;
   String? _stickerError;
   String? _itemsError;
@@ -170,13 +204,16 @@ class _VisitSheetState extends State<_VisitSheet> {
     if (group == null) return const [];
     return [
       for (final item in group.items)
-        if (item.isSchedulable) item.partId,
+        if (item.isSchedulable &&
+            (Transmission.ofPart(item.partId) ?? widget.vehicle.transmission) ==
+                widget.vehicle.transmission)
+          item.partId,
     ];
   }
 
   Future<void> _save() async {
     final km = PersianFormat.parseInt(_km.text);
-    if (km == null) {
+    if (km == null || km > 2000000) {
       setState(() => _kmError = 'کیلومتر را بنویس');
       return;
     }
@@ -198,11 +235,18 @@ class _VisitSheetState extends State<_VisitSheet> {
         return;
       }
     }
+    final last = widget.vehicle.lastReading.km;
+    if (km - last > _suspiciousJumpKm &&
+        !await _confirmLargeJump(context, last, km)) {
+      return;
+    }
+    if (!mounted) return;
     final toman = PersianFormat.parseInt(_cost.text);
     setState(() => _saving = true);
     await widget.controller.recordVisit(
       vehicleId: widget.vehicle.id,
       km: km,
+      date: _date,
       partIds: [
         for (final id in _allParts())
           if (_selected.contains(id)) id,
@@ -211,6 +255,20 @@ class _VisitSheetState extends State<_VisitSheet> {
       nextOilChangeKm: sticker,
     );
     if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _pickDate() async {
+    final today = widget.controller.now;
+    final picked = await showJalaliDatePicker(
+      context,
+      title: 'سرویس چه روزی انجام شد؟',
+      initial: _date,
+      yearsBack: 5,
+      yearsAhead: 0,
+    );
+    if (picked == null) return;
+    // A service can't be logged in the future.
+    setState(() => _date = picked.isAfter(today) ? today : picked);
   }
 
   @override
@@ -250,7 +308,21 @@ class _VisitSheetState extends State<_VisitSheet> {
               errorText: _kmError,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 8),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              key: const Key('visit-date'),
+              onPressed: _pickDate,
+              icon: const Icon(Icons.event_outlined, size: 20),
+              label: Text(
+                MaintenancePlanner.daysBetween(_date, widget.controller.now) == 0
+                    ? 'امروز · ${PersianFormat.date(_date)}'
+                    : PersianFormat.date(_date),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           Text(
             'چه کارهایی انجام شد؟',
             style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),

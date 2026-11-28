@@ -49,17 +49,29 @@ class MaintenanceDue {
 
   /// Share of the km period used at [odometerKm], 0..1.
   double kmProgress(int odometerKm) {
-    final interval = intervalKm;
-    if (interval == null || interval <= 0) return 0;
-    return ((odometerKm - periodStartKm) / interval).clamp(0.0, 1.0);
+    final span = periodKm;
+    if (span == null || span <= 0) return 0;
+    return ((odometerKm - periodStartKm) / span).clamp(0.0, 1.0);
   }
+
+  /// Length of the current km period: from its start to the target.
+  int? get periodKm => dueKm == null ? null : dueKm! - periodStartKm;
 }
 
 /// Items that are done together at one workshop visit.
 class ServiceVisit {
-  const ServiceVisit({required this.items, required this.dueKm, this.dueDate});
+  const ServiceVisit({
+    required this.items,
+    required this.lead,
+    required this.dueKm,
+    this.dueDate,
+  });
 
+  /// Everything to do at this visit; [lead] comes first.
   final List<MaintenanceDue> items;
+
+  /// The item that sets the visit's target, for its progress bar.
+  final MaintenanceDue lead;
 
   /// The earliest km target among the items, preferring items whose last
   /// service is on record over factory-schedule estimates.
@@ -162,6 +174,8 @@ class MaintenancePlanner {
 
     final dues = <MaintenanceDue>[];
     for (final item in group.items) {
+      final gearbox = Transmission.ofPart(item.partId);
+      if (gearbox != null && gearbox != vehicle.transmission) continue;
       final interval = effectiveInterval(item, vehicle);
       if (interval == null) continue;
       final last = latestByPart[item.partId];
@@ -173,7 +187,8 @@ class MaintenancePlanner {
         dueKm = null;
       } else if (last != null) {
         periodStartKm = last.km;
-        dueKm = last.km + interval.km!;
+        // A sticker number is the target as the mechanic gave it.
+        dueKm = last.nextDueKm ?? last.km + interval.km!;
       } else {
         // Next factory milestone strictly above the odometer.
         final step = interval.km!;
@@ -219,12 +234,18 @@ class MaintenancePlanner {
     // a factory milestone for a part with no history is only an estimate.
     // When a visit has both, the facts set its target, so the app never
     // moves an oil change the sticker put at 72,000 back to 70,000.
-    final recorded = inVisit.where((d) => d.basis == DueBasis.record);
-    final anchors = recorded.isEmpty ? inVisit : recorded;
+    // An overdue estimate is never hidden behind a later fact, though.
+    final facts = [
+      for (final d in inVisit)
+        if (d.basis == DueBasis.record || d.status == DueStatus.overdue) d,
+    ];
+    final anchors = facts.isEmpty ? inVisit : facts;
+    final lead = anchors.first;
     return MaintenancePlan(
       odometerKm: odometer,
       nextVisit: ServiceVisit(
-        items: inVisit,
+        items: [lead, ...inVisit.where((d) => !identical(d, lead))],
+        lead: lead,
         dueKm: _minInt(anchors.map((d) => d.dueKm)),
         dueDate: _minDate(anchors.map((d) => d.dueDate)),
       ),

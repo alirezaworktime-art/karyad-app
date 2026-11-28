@@ -97,9 +97,12 @@ void main() {
     await _pickModel(tester, 'دنا', 'دنا پلاس');
     await tester.enterText(find.byKey(const Key('current-km')), '62400');
     await tester.enterText(find.byKey(const Key('sticker-km')), '72000');
+    expect(find.widgetWithText(ChoiceChip, 'اتوماتیک'), findsOneWidget);
     await _tap(tester, find.text('ادامه'));
 
     expect(find.text('آخرین بار کِی عوض شده‌اند؟'), findsOneWidget);
+    // Manual is the default gearbox, so the automatic-gearbox oil is gone.
+    expect(find.byKey(const Key('last-automatic_gearbox_oil')), findsNothing);
     await tester.enterText(find.byKey(const Key('last-air_filter')), '70000');
     await _tap(tester, find.text('تمام'));
     expect(find.textContaining('از کیلومترشمار'), findsOneWidget);
@@ -170,13 +173,13 @@ void main() {
     await _tap(tester, find.text('ثبت'));
     expect(find.text('هر ۶٬۰۰۰ کیلومتر'), findsOneWidget);
 
-    // The sticker put the last change at 62,000 (72,000 − 10,000); a 6,000
-    // interval now makes it due at 68,000.
+    // The sticker already in the car stays the target; the new interval
+    // applies from the next oil change.
     await _tap(tester, find.byKey(const Key('document-insurance')));
     await _tap(tester, find.text('ثبت'));
 
     await _tap(tester, find.text('خانه'));
-    expect(find.textContaining('۶۸٬۰۰۰', findRichText: true), findsWidgets);
+    expect(find.textContaining('۷۲٬۰۰۰', findRichText: true), findsWidgets);
     expect(find.text('بیمه‌ی شخص ثالث امروز تمام می‌شود'), findsOneWidget);
   });
 

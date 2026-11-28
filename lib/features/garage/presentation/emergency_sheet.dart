@@ -22,12 +22,13 @@ class _EmergencySheet extends StatelessWidget {
   static const _saipa = ('امداد خودرو سایپا', '096550');
   static const _police = ('پلیس', '110');
   static const _ambulance = ('اورژانس', '115');
+  static const _fire = ('آتش‌نشانی', '125');
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final makerFirst = maker?.id == 'ikco' ? [_ikco, _saipa] : [_saipa, _ikco];
-    final entries = [...makerFirst, _police, _ambulance];
+    final entries = [...makerFirst, _police, _ambulance, _fire];
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),

@@ -39,6 +39,29 @@ const _chain = MaintenanceItem(
   confidence: Confidence.official,
 );
 
+const _manualBox = MaintenanceItem(
+  partId: 'manual_gearbox_oil',
+  action: MaintenanceAction.replace,
+  confidence: Confidence.official,
+  normal: ServiceInterval(km: 60000),
+);
+
+const _autoBox = MaintenanceItem(
+  partId: 'automatic_gearbox_oil',
+  action: MaintenanceAction.replace,
+  confidence: Confidence.official,
+  normal: ServiceInterval(km: 40000),
+);
+
+const _boxGroup = VehicleGroup(
+  id: 'g',
+  makerId: 'ikco',
+  models: [VehicleModel(id: 'car', nameFa: 'خودرو', groupId: 'g')],
+  confidence: Confidence.official,
+  sourceFa: 'test',
+  items: [_oil, _manualBox, _autoBox],
+);
+
 const _group = VehicleGroup(
   id: 'g',
   makerId: 'ikco',
@@ -54,12 +77,16 @@ Vehicle _car({
   int km = 62000,
   VehicleUsage usage = VehicleUsage.personal,
   OilType oil = OilType.fullSynthetic,
+  Transmission transmission = Transmission.manual,
+  int? oilIntervalKm,
   List<OdometerReading>? readings,
 }) => Vehicle(
   id: 'v1',
   modelId: 'car',
   usage: usage,
   oilType: oil,
+  transmission: transmission,
+  oilIntervalKm: oilIntervalKm,
   readings: readings ?? [OdometerReading(km: km, date: _added)],
 );
 
@@ -259,6 +286,90 @@ void main() {
         ],
       );
       expect(v.learnedDailyKm, 30);
+    });
+  });
+
+  group('audit fixes', () {
+    test('only the gearbox oil of the car\'s gearbox applies', () {
+      List<String> parts(Transmission t) => planner
+          .plan(
+            vehicle: _car(transmission: t),
+            group: _boxGroup,
+            records: const [],
+            now: _added,
+          )
+          .all
+          .map((d) => d.partId)
+          .toList();
+      expect(parts(Transmission.manual), contains('manual_gearbox_oil'));
+      expect(parts(Transmission.manual), isNot(contains('automatic_gearbox_oil')));
+      expect(parts(Transmission.automatic), contains('automatic_gearbox_oil'));
+      expect(parts(Transmission.automatic), isNot(contains('manual_gearbox_oil')));
+    });
+
+    test('a sticker target stays put when interval settings change', () {
+      final sticker = ServiceRecord(
+        id: 's',
+        vehicleId: 'v1',
+        partId: 'engine_oil',
+        km: 62000,
+        date: _added,
+        estimated: true,
+        nextDueKm: 72000,
+      );
+      for (final car in [
+        _car(km: 62400),
+        _car(km: 62400, oil: OilType.mineral),
+        _car(km: 62400, oilIntervalKm: 6000),
+      ]) {
+        final plan = planner.plan(
+          vehicle: car,
+          group: _group,
+          records: [sticker],
+          now: _added,
+        );
+        expect(_due(plan, 'engine_oil').dueKm, 72000);
+      }
+    });
+
+    test('the visit lead is the item that sets its target', () {
+      final plan = planner.plan(
+        vehicle: _car(km: 62400),
+        group: _group,
+        records: [_done('engine_oil', 62000, _added)],
+        now: _added,
+      );
+      final visit = plan.nextVisit!;
+      expect(visit.lead.partId, 'engine_oil');
+      expect(visit.items.first.partId, 'engine_oil');
+      expect(visit.lead.kmProgress(63000), closeTo(0.1, 1e-9));
+    });
+
+    test('an overdue estimate is not hidden behind a later recorded target',
+        () {
+      // The belt has no history: 36 months from the day the car was added,
+      // so it is overdue by date. The air filter, logged at 71,000, is due
+      // at 81,000 and joins the same visit. The visit must still say 80,000.
+      final now = DateTime(2029, 1, 5);
+      final plan = planner.plan(
+        vehicle: _car(
+          readings: [
+            OdometerReading(km: 78500, date: _added),
+            OdometerReading(km: 79000, date: now),
+          ],
+        ),
+        group: _group,
+        records: [_done('air_filter', 71000, DateTime(2028, 6, 1))],
+        now: now,
+      );
+      final visit = plan.nextVisit!;
+      expect(
+        visit.items.map((d) => d.partId),
+        containsAll(['timing_belt', 'air_filter']),
+      );
+      expect(visit.status, DueStatus.overdue);
+      expect(visit.lead.status, DueStatus.overdue);
+      expect(visit.dueKm, 80000);
     });
   });
 }

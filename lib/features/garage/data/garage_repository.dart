@@ -64,32 +64,48 @@ class PreferencesGarageRepository implements GarageRepository {
   static const _key = 'garage.v1';
   static const _backupKey = 'garage.v1.previous';
 
+  /// Where an unreadable document is set aside, so support can still
+  /// recover it and a later save never overwrites it.
+  static const _corruptKey = 'garage.v1.unreadable';
+
   final SharedPreferences _prefs;
+
+  /// False when the stored document could not be read, so it must not
+  /// replace the good backup on the next save.
+  bool _currentIsReadable = true;
 
   @override
   Future<GarageData> load() async {
     final raw = _prefs.getString(_key);
     if (raw == null) return const GarageData();
-    try {
-      return GarageData.fromJson(jsonDecode(raw) as Map<String, Object?>);
-    } on Object {
-      // A corrupt document must not brick the app: fall back to the copy
-      // saved before the last write.
-      final previous = _prefs.getString(_backupKey);
-      if (previous == null) return const GarageData();
-      return GarageData.fromJson(jsonDecode(previous) as Map<String, Object?>);
-    }
+    final current = _decode(raw);
+    if (current != null) return current;
+
+    _currentIsReadable = false;
+    await _prefs.setString(_corruptKey, raw);
+    final previous = _prefs.getString(_backupKey);
+    return (previous == null ? null : _decode(previous)) ?? const GarageData();
   }
 
   @override
   Future<void> save(GarageData data) async {
     final current = _prefs.getString(_key);
-    if (current != null) await _prefs.setString(_backupKey, current);
+    if (current != null && _currentIsReadable) {
+      await _prefs.setString(_backupKey, current);
+    }
     await _prefs.setString(_key, jsonEncode(data.toJson()));
+    _currentIsReadable = true;
+  }
+
+  static GarageData? _decode(String raw) {
+    try {
+      return GarageData.fromJson(jsonDecode(raw) as Map<String, Object?>);
+    } on Object {
+      return null;
+    }
   }
 }
 
-/// In-memory repository for tests and previews.
 class InMemoryGarageRepository implements GarageRepository {
   InMemoryGarageRepository([this._data = const GarageData()]);
 

@@ -79,6 +79,30 @@ class SettingsTab extends StatelessWidget {
                     ),
                 ],
               ),
+              if (controller
+                  .transmissionChoices(vehicle.modelId)
+                  .isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Text('گیربکس', style: label),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final t in controller.transmissionChoices(
+                      vehicle.modelId,
+                    ))
+                      ChoiceChip(
+                        label: Text(t.nameFa),
+                        selected: t == vehicle.transmission,
+                        onSelected: (_) => controller.updateVehicle(
+                          vehicle.id,
+                          transmission: t,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 20),
               Card(
                 child: SwitchListTile(
