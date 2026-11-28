@@ -84,9 +84,8 @@ class GarageController extends ChangeNotifier {
   /// clears it with null or a blank name.
   Future<void> renameVehicle(String vehicleId, String? nickname) async {
     final name = nickname?.trim();
-    final updated = _vehicle(
-      vehicleId,
-    ).copyWith(nickname: name == null || name.isEmpty ? null : name);
+    final updated = _vehicle(vehicleId)
+        .copyWith(nickname: name == null || name.isEmpty ? null : name);
     await _commit(_data.copyWith(vehicles: _replace(updated)));
   }
 
@@ -114,6 +113,7 @@ class GarageController extends ChangeNotifier {
       ),
     );
   }
+
   DateTime get now => _clock();
 
   Future<void> load() async {
@@ -411,7 +411,6 @@ class GarageController extends ChangeNotifier {
       ),
     );
   }
-
 
   MaintenancePlan? planFor(Vehicle vehicle) {
     final group = catalog.groupForModel(vehicle.modelId);

@@ -183,9 +183,7 @@ void main() {
     expect(find.text('بیمه‌ی شخص ثالث امروز تمام می‌شود'), findsOneWidget);
   });
 
-  testWidgets('adding a second car and switching between them', (
-    tester,
-  ) async {
+  testWidgets('adding a second car and switching between them', (tester) async {
     final controller = await _pumpApp(tester);
     await _tap(tester, find.text('شروع کنیم'));
     await _pickModel(tester, 'کوییک', 'کوییک');

@@ -227,13 +227,14 @@ class _VehicleSwitcherButton extends StatelessWidget {
       onPressed: onPressed,
       style: TextButton.styleFrom(
         foregroundColor: BrandColors.violet,
-        textStyle: Theme.of(
-          context,
-        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+        textStyle: Theme.of(context).textTheme.titleMedium
+            ?.copyWith(fontWeight: FontWeight.w800),
       ),
       icon: Icon(count > 1 ? Icons.swap_horiz : Icons.add_circle_outline),
       label: Text(
-        count > 1 ? '$name · ${PersianFormat.number(count)} ماشین' : 'افزودن ماشین',
+        count > 1
+            ? '$name · ${PersianFormat.number(count)} ماشین'
+            : 'افزودن ماشین',
         overflow: TextOverflow.ellipsis,
       ),
     );

@@ -361,31 +361,33 @@ void main() {
       expect(controller.displayName(controller.activeVehicle!), 'کوییک');
     });
 
-    test('removing a car keeps the others; removing the last starts over',
-        () async {
-      final first = await controller.addVehicle(
-        modelId: 'quick',
-        usage: VehicleUsage.personal,
-        currentKm: 30000,
-      );
-      final second = await controller.addVehicle(
-        modelId: 'dena-plus',
-        usage: VehicleUsage.personal,
-        currentKm: 60000,
-      );
-      await controller.recordVisit(
-        vehicleId: second.id,
-        km: 60000,
-        partIds: ['engine_oil'],
-      );
-      await controller.removeVehicle(second.id);
-      expect(controller.vehicles.map((v) => v.id), [first.id]);
-      expect(controller.activeVehicle!.id, first.id);
-      expect(controller.isOnboarded, isTrue);
+    test(
+      'removing a car keeps the others; removing the last starts over',
+      () async {
+        final first = await controller.addVehicle(
+          modelId: 'quick',
+          usage: VehicleUsage.personal,
+          currentKm: 30000,
+        );
+        final second = await controller.addVehicle(
+          modelId: 'dena-plus',
+          usage: VehicleUsage.personal,
+          currentKm: 60000,
+        );
+        await controller.recordVisit(
+          vehicleId: second.id,
+          km: 60000,
+          partIds: ['engine_oil'],
+        );
+        await controller.removeVehicle(second.id);
+        expect(controller.vehicles.map((v) => v.id), [first.id]);
+        expect(controller.activeVehicle!.id, first.id);
+        expect(controller.isOnboarded, isTrue);
 
-      await controller.removeVehicle(first.id);
-      expect(controller.isOnboarded, isFalse);
-    });
+        await controller.removeVehicle(first.id);
+        expect(controller.isOnboarded, isFalse);
+      },
+    );
 
     test('the active car survives a restart', () async {
       await controller.addVehicle(
