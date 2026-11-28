@@ -349,7 +349,7 @@ class _NextVisitCard extends StatelessWidget {
     required this.odometerKm,
     required this.learnedDailyKm,
     required this.now,
-    required this.partName,
+    required this.dueName,
     required this.onDone,
   });
 
