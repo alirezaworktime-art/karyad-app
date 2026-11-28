@@ -256,9 +256,7 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('model-search')), 'تسلا');
     await tester.pumpAndSettle();
-    expect(
-      find.text('این مدل هنوز تو فهرست نیست. به‌زودی اضافه‌ش می‌کنیم.'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('این مدل رو هنوز نداریم'), findsOneWidget);
+    expect(find.byKey(const Key('other-model')), findsOneWidget);
   });
 }
