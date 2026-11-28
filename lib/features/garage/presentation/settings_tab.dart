@@ -6,6 +6,7 @@ import '../../../core/ui/responsive_body.dart';
 import '../../catalog/domain/body_type.dart';
 import '../application/garage_controller.dart';
 import 'document_actions.dart';
+import 'vehicle_switcher.dart';
 import '../domain/vehicle.dart';
 import 'widgets/car_illustration.dart';
 
@@ -22,7 +23,7 @@ class SettingsTab extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
-        final vehicle = controller.primaryVehicle;
+        final vehicle = controller.activeVehicle;
         if (vehicle == null) return const SizedBox.shrink();
         final model = controller.catalog.model(vehicle.modelId);
 
@@ -52,17 +53,38 @@ class SettingsTab extends StatelessWidget {
                       width: 220,
                     ),
                     Text(
-                      model?.nameFa ?? '',
+                      controller.displayName(vehicle),
                       style: text.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
                     ),
+                    if (vehicle.nickname != null)
+                      Text(
+                        model?.nameFa ?? '',
+                        style: text.bodySmall?.copyWith(
+                          color: BrandColors.muted,
+                        ),
+                      ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
               _SectionTitle('ماشین'),
-              const SizedBox(height: 10),
+              const SizedBox(height: 4),
+              ListTile(
+                key: const Key('rename-vehicle'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(
+                  Icons.edit_outlined,
+                  color: BrandColors.violet,
+                ),
+                title: Text(vehicle.nickname ?? 'یه اسم براش بذار'),
+                subtitle: const Text(
+                  'مثلاً «ماشین بابا» یا «پراید کار»، که قاطی نشن',
+                ),
+                onTap: () => _rename(context, vehicle),
+              ),
+              const SizedBox(height: 6),
               Text('رنگ', style: label),
               const SizedBox(height: 10),
               Wrap(
@@ -112,7 +134,7 @@ class SettingsTab extends StatelessWidget {
                     usage: v ? VehicleUsage.work : VehicleUsage.personal,
                   ),
                   title: Text('مسافرکشی می‌کنم', style: label),
-                  subtitle: const Text('سرویس‌ها طبق «شرایط سخت» کارخانه'),
+                  subtitle: const Text('سرویس‌ها طبق «شرایط سخت» کارخونه'),
                 ),
               ),
               const SizedBox(height: 28),
@@ -123,7 +145,7 @@ class SettingsTab extends StatelessWidget {
               _SectionTitle('بیمه و معاینه‌ی فنی'),
               const SizedBox(height: 4),
               Text(
-                'یک ماه مانده به تمام شدن، در صفحه‌ی خانه یادآوری می‌کنیم.',
+                'یه ماه مونده به تموم شدنش، تو صفحه‌ی «خانه» یادت میندازیم.',
                 style: text.bodySmall?.copyWith(color: BrandColors.muted),
               ),
               const SizedBox(height: 10),
@@ -139,14 +161,21 @@ class SettingsTab extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 28),
+              OutlinedButton.icon(
+                onPressed: () => openAddVehicle(context, controller),
+                icon: const Icon(Icons.add),
+                label: const Text('یه ماشین دیگه اضافه کن'),
+              ),
+              const SizedBox(height: 12),
               OutlinedButton(
-                onPressed: () => _confirmReset(context),
+                key: const Key('remove-vehicle'),
+                onPressed: () => _confirmRemove(context, vehicle),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: BrandColors.danger,
                   side: const BorderSide(color: BrandColors.danger),
                 ),
-                child: const Text('حذف ماشین و شروع دوباره'),
+                child: Text('حذف ${controller.displayName(vehicle)}'),
               ),
             ],
           ),
@@ -155,13 +184,24 @@ class SettingsTab extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmReset(BuildContext context) async {
+  Future<void> _rename(BuildContext context, Vehicle vehicle) async {
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => _RenameDialog(initial: vehicle.nickname ?? ''),
+    );
+    if (name != null) await controller.renameVehicle(vehicle.id, name);
+  }
+
+  Future<void> _confirmRemove(BuildContext context, Vehicle vehicle) async {
+    final last = controller.vehicles.length == 1;
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('همه‌چیز پاک شود؟'),
-        content: const Text(
-          'ماشین و همه‌ی سوابق سرویس از این گوشی پاک می‌شود و قابل برگشت نیست.',
+        title: Text('${controller.displayName(vehicle)} پاک بشه؟'),
+        content: Text(
+          last
+              ? 'ماشین و همه‌ی سوابقش از این گوشی پاک می‌شه و برنمی‌گرده. بعدش از اول شروع می‌کنی.'
+              : 'این ماشین و همه‌ی سوابقش از این گوشی پاک می‌شه و برنمی‌گرده. بقیه‌ی ماشین‌ها سر جاشون می‌مونن.',
         ),
         actions: [
           TextButton(
@@ -176,7 +216,53 @@ class SettingsTab extends StatelessWidget {
         ],
       ),
     );
-    if (ok ?? false) await controller.resetAll();
+    if (ok ?? false) await controller.removeVehicle(vehicle.id);
+  }
+}
+
+class _RenameDialog extends StatefulWidget {
+  const _RenameDialog({required this.initial});
+
+  final String initial;
+
+  @override
+  State<_RenameDialog> createState() => _RenameDialogState();
+}
+
+class _RenameDialogState extends State<_RenameDialog> {
+  late final _field = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _field.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('اسم ماشین'),
+      content: TextField(
+        key: const Key('vehicle-name'),
+        controller: _field,
+        autofocus: true,
+        maxLength: 24,
+        onSubmitted: (v) => Navigator.of(context).pop(v),
+        decoration: const InputDecoration(
+          hintText: 'خالی بذاری، اسم مدل نشون داده می‌شه',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('بی‌خیال'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_field.text),
+          child: const Text('ذخیره'),
+        ),
+      ],
+    );
   }
 }
 
@@ -215,12 +301,12 @@ class _OilSettings extends StatelessWidget {
                 ? _editInterval(context)
                 : controller.setOilInterval(vehicle.id, null),
             title: Text(
-              'فاصله‌ی تعویض را خودم تعیین می‌کنم',
+              'فاصله‌ی تعویض رو خودم تعیین می‌کنم',
               style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
             subtitle: Text(
               custom == null
-                  ? 'مثلاً اگر تعمیرکار گفته هر ۶٬۰۰۰ کیلومتر'
+                  ? 'مثلاً اگه تعمیرکار گفته هر ۶٬۰۰۰ کیلومتر'
                   : 'هر ${PersianFormat.km(custom)}',
             ),
           ),
@@ -231,7 +317,7 @@ class _OilSettings extends StatelessWidget {
             child: TextButton.icon(
               onPressed: () => _editInterval(context),
               icon: const Icon(Icons.edit_outlined, size: 18),
-              label: const Text('تغییر عدد'),
+              label: const Text('عوض کردن عدد'),
             ),
           )
         else ...[
@@ -260,7 +346,7 @@ class _OilSettings extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'نمی‌دانی؟ از تعویض‌روغنی بپرس؛ روغن معدنی زودتر عوض می‌شود.',
+            'نمی‌دونی؟ از تعویض‌روغنی بپرس؛ روغن معدنی زودتر عوض می‌شه.',
             style: text.bodySmall?.copyWith(color: BrandColors.muted),
           ),
         ],
@@ -316,7 +402,7 @@ class _OilIntervalDialogState extends State<_OilIntervalDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('هر چند کیلومتر روغن عوض شود؟'),
+      title: const Text('هر چند کیلومتر روغن عوض بشه؟'),
       content: TextField(
         key: const Key('oil-interval'),
         controller: _field,
@@ -333,7 +419,7 @@ class _OilIntervalDialogState extends State<_OilIntervalDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('انصراف'),
+          child: const Text('بی‌خیال'),
         ),
         FilledButton(onPressed: _save, child: const Text('ثبت')),
       ],
@@ -365,7 +451,7 @@ class _DocumentTile extends StatelessWidget {
       trailing: expiry == null
           ? const Icon(Icons.add, color: BrandColors.violet)
           : IconButton(
-              tooltip: 'حذف تاریخ',
+              tooltip: 'پاک کردن تاریخ',
               icon: const Icon(Icons.close),
               onPressed: () =>
                   controller.setDocumentExpiry(vehicle.id, document, null),

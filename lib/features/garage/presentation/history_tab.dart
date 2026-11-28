@@ -17,7 +17,7 @@ class HistoryTab extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
-        final vehicle = controller.primaryVehicle;
+        final vehicle = controller.activeVehicle;
         if (vehicle == null) return const SizedBox.shrink();
         final visits = controller.visitsFor(vehicle.id);
         final total = visits
@@ -36,7 +36,7 @@ class HistoryTab extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'هر سرویسی که ثبت کنی اینجا می‌ماند؛ موقع فروش ماشین به خریدار نشانش بده.',
+                'هر سرویسی ثبت کنی اینجا می‌مونه؛ موقع فروش ماشین به خریدار نشونش بده.',
                 style: text.bodyMedium?.copyWith(color: BrandColors.muted),
               ),
               const SizedBox(height: 16),
@@ -60,7 +60,7 @@ class HistoryTab extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'بعد از هر تعویض روغن یا تعمیر، در صفحه‌ی خانه «سرویس را انجام دادم» را بزن.',
+                          'هر بار روغن عوض کردی یا تعمیرگاه رفتی، تو صفحه‌ی «خانه» «سرویس رو انجام دادم» رو بزن.',
                           textAlign: TextAlign.center,
                           style: text.bodyMedium?.copyWith(
                             color: BrandColors.muted,
@@ -188,8 +188,8 @@ class HistoryTab extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('این سرویس حذف شود؟'),
-        content: const Text('یادآورها دوباره بدون این سرویس حساب می‌شوند.'),
+        title: const Text('این سرویس پاک بشه؟'),
+        content: const Text('یادآورها بدون این سرویس دوباره حساب می‌شن.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),

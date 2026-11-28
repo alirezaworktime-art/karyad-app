@@ -30,7 +30,7 @@ void main() {
 
   test('describes relative days', () {
     expect(PersianFormat.daysFromNow(0), 'امروز');
-    expect(PersianFormat.daysFromNow(3), '۳ روز دیگر');
+    expect(PersianFormat.daysFromNow(3), '۳ روز دیگه');
     expect(PersianFormat.daysFromNow(-5), '۵ روز پیش');
   });
 

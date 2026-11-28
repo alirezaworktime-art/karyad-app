@@ -151,7 +151,7 @@ class Vehicle {
   }
 
   Vehicle copyWith({
-    String? nickname,
+    Object? nickname = _keep,
     VehicleUsage? usage,
     OilType? oilType,
     CarColor? color,
@@ -163,7 +163,7 @@ class Vehicle {
   }) => Vehicle(
     id: id,
     modelId: modelId,
-    nickname: nickname ?? this.nickname,
+    nickname: identical(nickname, _keep) ? this.nickname : nickname as String?,
     usage: usage ?? this.usage,
     oilType: oilType ?? this.oilType,
     color: color ?? this.color,

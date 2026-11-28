@@ -18,7 +18,7 @@ Future<void> pickDocumentExpiry(
 ) async {
   final picked = await showJalaliDatePicker(
     context,
-    title: 'اعتبار ${document.nameFa} تا چه تاریخی است؟',
+    title: '${document.nameFa} تا کِی اعتبار داره؟',
     initial: vehicle.documentExpiry[document] ?? controller.now,
   );
   if (picked != null) {

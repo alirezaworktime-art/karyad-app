@@ -48,19 +48,19 @@ Future<bool> _confirmLargeJump(BuildContext context, int from, int to) async {
   final ok = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('این عدد درست است؟'),
+      title: const Text('این عدد درسته؟'),
       content: Text(
         '${PersianFormat.km(to - from)} بیشتر از عدد قبلی '
-        '(${PersianFormat.number(from)}) است. اگر رقم اضافه زده‌ای، اصلاحش کن.',
+        '(${PersianFormat.number(from)}) هست. اگه رقم اضافه زدی، درستش کن.',
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('اصلاح می‌کنم'),
+          child: const Text('درستش می‌کنم'),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('درست است'),
+          child: const Text('آره، درسته'),
         ),
       ],
     ),
@@ -99,13 +99,13 @@ class _ReadingSheetState extends State<_ReadingSheet> {
     final km = PersianFormat.parseInt(_km.text);
     final last = widget.vehicle.lastReading.km;
     if (km == null) {
-      setState(() => _error = 'عدد کیلومترشمار را بنویس');
+      setState(() => _error = 'عدد کیلومترشمار رو بنویس');
       return;
     }
     if (km < last) {
       setState(
         () => _error =
-            'از عدد قبلی (${PersianFormat.number(last)}) کمتر است؛ دوباره نگاه کن.',
+            'از عدد قبلی (${PersianFormat.number(last)}) کمتره؛ یه بار دیگه نگاه کن.',
       );
       return;
     }
@@ -127,7 +127,7 @@ class _ReadingSheetState extends State<_ReadingSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'کیلومترشمار الان چند است؟',
+            'کیلومترشمار الان چنده؟',
             style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
@@ -214,11 +214,11 @@ class _VisitSheetState extends State<_VisitSheet> {
   Future<void> _save() async {
     final km = PersianFormat.parseInt(_km.text);
     if (km == null || km > 2000000) {
-      setState(() => _kmError = 'کیلومتر را بنویس');
+      setState(() => _kmError = 'کیلومتر رو بنویس');
       return;
     }
     if (_selected.isEmpty) {
-      setState(() => _itemsError = 'حداقل یک کار را تیک بزن');
+      setState(() => _itemsError = 'حداقل یه کار رو تیک بزن');
       return;
     }
     final sticker = _oilTicked ? PersianFormat.parseInt(_sticker.text) : null;
@@ -230,7 +230,7 @@ class _VisitSheetState extends State<_VisitSheet> {
           () => _stickerError =
               'باید حدود ${PersianFormat.number(GarageController.minOilIntervalKm)} '
               'تا ${PersianFormat.number(GarageController.maxOilIntervalKm)} '
-              'کیلومتر بیشتر از کیلومترشمار باشد',
+              'کیلومتر بیشتر از کیلومترشمار باشه',
         );
         return;
       }
@@ -261,7 +261,7 @@ class _VisitSheetState extends State<_VisitSheet> {
     final today = widget.controller.now;
     final picked = await showJalaliDatePicker(
       context,
-      title: 'سرویس چه روزی انجام شد؟',
+      title: 'سرویس کِی انجام شد؟',
       initial: _date,
       yearsBack: 5,
       yearsAhead: 0,
@@ -303,7 +303,7 @@ class _VisitSheetState extends State<_VisitSheet> {
             style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             onChanged: (_) => setState(() => _kmError = null),
             decoration: InputDecoration(
-              labelText: 'کیلومترشمار هنگام سرویس',
+              labelText: 'کیلومترشمار موقع سرویس',
               suffixText: 'کیلومتر',
               errorText: _kmError,
             ),
@@ -325,7 +325,7 @@ class _VisitSheetState extends State<_VisitSheet> {
           ),
           const SizedBox(height: 12),
           Text(
-            'چه کارهایی انجام شد؟',
+            'چه کارهایی انجام دادی؟',
             style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
           if (_itemsError != null)
@@ -355,7 +355,7 @@ class _VisitSheetState extends State<_VisitSheet> {
               child: TextButton.icon(
                 onPressed: () => setState(() => _showAll = true),
                 icon: const Icon(Icons.add),
-                label: const Text('کار دیگر (تسمه، شمع، لنت…)'),
+                label: const Text('یه کار دیگه (تسمه، شمع، لنت…)'),
               ),
             ),
           if (_oilTicked) ...[
@@ -370,7 +370,7 @@ class _VisitSheetState extends State<_VisitSheet> {
                 hintText:
                     'مثلاً ${PersianFormat.number(widget.vehicle.lastReading.km + 6000)}',
                 suffixText: 'کیلومتر',
-                helperText: 'تعویض بعدی دقیقاً همین عدد می‌شود.',
+                helperText: 'تعویض بعدی دقیقاً همین عدد می‌شه.',
                 helperMaxLines: 2,
                 errorText: _stickerError,
                 errorMaxLines: 3,
@@ -382,7 +382,7 @@ class _VisitSheetState extends State<_VisitSheet> {
             controller: _cost,
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(
-              labelText: 'هزینه (اختیاری)',
+              labelText: 'چقدر شد؟ (اختیاری)',
               suffixText: 'تومان',
             ),
           ),

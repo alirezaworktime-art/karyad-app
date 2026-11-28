@@ -54,7 +54,7 @@ class _EmergencySheet extends StatelessWidget {
               ),
             const SizedBox(height: 8),
             Text(
-              'فقط به همین شماره‌های رسمی اعتماد کنید؛ تماس از شماره‌های دیگر به نام امداد خودروسازها معتبر نیست.',
+              'فقط به همین شماره‌های رسمی اعتماد کن؛ اگه کسی با شماره‌ی دیگه به اسم امداد خودروسازها زنگ زد، معتبر نیست.',
               style: theme.textTheme.bodySmall,
             ),
           ],

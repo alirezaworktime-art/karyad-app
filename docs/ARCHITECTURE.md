@@ -87,6 +87,18 @@ user can check against the dashboard and the calendar.
 - **Status.** Overdue when km or date passed; «نزدیک» within 1,000 km or
   30 days.
 
+## Several cars
+
+`GarageData.activeVehicleId` names the car every screen shows. Adding a car
+reuses the onboarding steps (without the welcome) and makes the new car
+active; the header button on home switches cars. Removing a car deletes its
+records; removing the last one starts over.
+
+## Writing style
+
+UI text is casual spoken Persian («رو»، «می‌شه»، «اگه»), short, and talks
+to the user directly. Tab names and part names stay in standard form.
+
 ## Storage safety
 
 The garage is one JSON document with a copy of the previous save. If the

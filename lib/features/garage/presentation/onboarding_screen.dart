@@ -12,10 +12,20 @@ import 'widgets/karyad_logo.dart';
 
 /// Welcome → pick the car → odometer, sticker and color → the last time
 /// key parts were replaced (optional). About a minute.
+///
+/// The same steps add a second car: [addingAnother] skips the welcome, and
+/// [onExit] runs when the user backs out or the car is saved.
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key, required this.controller});
+  const OnboardingScreen({
+    super.key,
+    required this.controller,
+    this.addingAnother = false,
+    this.onExit,
+  });
 
   final GarageController controller;
+  final bool addingAnother;
+  final VoidCallback? onExit;
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -39,7 +49,7 @@ class _CarDetails {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  int _step = 0;
+  late int _step = widget.addingAnother ? 1 : 0;
   String? _modelId;
   _CarDetails? _details;
   bool _saving = false;
@@ -56,6 +66,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       transmission: details.transmission,
       lastReplacedKm: lastReplacedKm,
     );
+    widget.onExit?.call();
   }
 
   @override
@@ -65,7 +76,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       0 => _WelcomeStep(onStart: () => setState(() => _step = 1)),
       1 => _ModelStep(
         catalog: catalog,
-        onBack: () => setState(() => _step = 0),
+        onBack: widget.addingAnother
+            ? () => widget.onExit?.call()
+            : () => setState(() => _step = 0),
         onPick: (id) => setState(() {
           _modelId = id;
           _step = 2;
@@ -203,7 +216,7 @@ class _WelcomeStep extends StatelessWidget {
                 ),
                 const SizedBox(height: 28),
                 Text(
-                  'سرویس ماشینت دیگر یادت نمی‌رود',
+                  'دیگه سرویس ماشینت یادت نمی‌ره',
                   style: text.headlineMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                     height: 1.45,
@@ -211,7 +224,7 @@ class _WelcomeStep extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'طبق دفترچه‌ی کارخانه می‌گوییم هر قطعه در چه کیلومتری و تا چه تاریخی باید عوض شود.',
+                  'طبق دفترچه‌ی کارخونه بهت می‌گیم هر قطعه رو تو چه کیلومتری و تا کِی باید عوض کنی.',
                   style: text.bodyLarge?.copyWith(color: BrandColors.muted),
                 ),
                 const Spacer(),
@@ -221,7 +234,7 @@ class _WelcomeStep extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'کمتر از یک دقیقه · بدون ثبت‌نام و شماره تلفن',
+                  'یه دقیقه بیشتر طول نمی‌کشه · بدون ثبت‌نام و شماره تلفن',
                   textAlign: TextAlign.center,
                   style: text.bodySmall?.copyWith(color: BrandColors.muted),
                 ),
@@ -333,7 +346,7 @@ class _ModelStepState extends State<_ModelStep> {
               const _Progress(step: 1),
               const SizedBox(height: 18),
               Text(
-                'ماشینت کدام است؟',
+                'ماشینت چیه؟',
                 style: text.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -361,7 +374,7 @@ class _ModelStepState extends State<_ModelStep> {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 32),
                   child: Text(
-                    'این مدل هنوز در فهرست نیست. به‌زودی اضافه می‌شود.',
+                    'این مدل هنوز تو فهرست نیست. به‌زودی اضافه‌ش می‌کنیم.',
                     textAlign: TextAlign.center,
                     style: text.bodyMedium?.copyWith(color: BrandColors.muted),
                   ),
@@ -487,18 +500,18 @@ class _DetailsStepState extends State<_DetailsStep> {
     String? kmError;
     String? stickerError;
     if (km == null || km > 2000000) {
-      kmError = 'عدد کیلومترشمار را بنویس';
+      kmError = 'عدد کیلومترشمار رو بنویس';
     }
     if (!_noSticker && sticker == null) {
-      stickerError = 'عدد برچسب را بنویس یا «برچسب ندارم» را بزن';
+      stickerError = 'عدد برچسب رو بنویس یا «برچسب ندارم» رو بزن';
     } else if (sticker != null && km != null && sticker <= km) {
-      stickerError = 'این عدد از کیلومترشمار کمتر است؛ یعنی وقت تعویض روغن گذشته. «برچسب ندارم» را بزن.';
+      stickerError = 'این عدد از کیلومترشمار کمتره، یعنی وقت تعویض روغنت گذشته. «برچسب ندارم» رو بزن.';
     } else if (sticker != null &&
         km != null &&
         sticker - km > GarageController.maxOilIntervalKm) {
       stickerError =
           'این عدد بیش از ${PersianFormat.number(GarageController.maxOilIntervalKm)} '
-          'کیلومتر جلوتر از کیلومترشمار است؛ دوباره روی برچسب نگاه کن.';
+          'کیلومتر جلوتر از کیلومترشماره؛ یه بار دیگه برچسب رو نگاه کن.';
     }
     if (kmError != null || stickerError != null) {
       setState(() {
@@ -564,7 +577,7 @@ class _DetailsStepState extends State<_DetailsStep> {
                 ),
               ),
               const SizedBox(height: 20),
-              Text('کیلومترشمار الان چند نشان می‌دهد؟', style: label),
+              Text('کیلومترشمار الان چند نشون می‌ده؟', style: label),
               const SizedBox(height: 8),
               TextField(
                 key: const Key('current-km'),
@@ -578,11 +591,11 @@ class _DetailsStepState extends State<_DetailsStep> {
                   suffixText: 'کیلومتر',
                   errorText: _kmError,
                   errorMaxLines: 3,
-                  helperText: 'همان عدد صفحه‌ی جلوی فرمان.',
+                  helperText: 'همون عددی که پشت فرمون می‌بینی.',
                 ),
               ),
               const SizedBox(height: 20),
-              Text('روی برچسب تعویض روغن چه عددی نوشته؟', style: label),
+              Text('رو برچسب تعویض روغن چه عددی نوشته؟', style: label),
               const SizedBox(height: 8),
               TextField(
                 key: const Key('sticker-km'),
@@ -595,7 +608,7 @@ class _DetailsStepState extends State<_DetailsStep> {
                   suffixText: 'کیلومتر',
                   errorText: _stickerError,
                   errorMaxLines: 3,
-                  helperText: 'برچسب کوچک گوشه‌ی شیشه‌ی جلو.',
+                  helperText: 'همون برچسب کوچیک گوشه‌ی شیشه‌ی جلو.',
                 ),
               ),
               Align(
@@ -657,7 +670,7 @@ class _DetailsStepState extends State<_DetailsStep> {
                     ),
                   ),
                   subtitle: const Text(
-                    'اسنپ، تپسی، تاکسی، پیک · سرویس‌ها زودتر یادآوری می‌شوند',
+                    'اسنپ، تپسی، تاکسی، پیک · سرویس‌ها رو زودتر یادت میندازیم',
                   ),
                 ),
               ),
@@ -766,10 +779,10 @@ class _HistoryStepState extends State<_HistoryStep> {
       if (raw.isEmpty) continue;
       final km = PersianFormat.parseInt(raw);
       if (km == null) {
-        errors[entry.key] = 'فقط عدد بنویس یا خالی بگذار';
+        errors[entry.key] = 'فقط عدد بنویس یا خالی بذار';
       } else if (km > widget.currentKm) {
         errors[entry.key] =
-            'از کیلومترشمار (${PersianFormat.number(widget.currentKm)}) بیشتر است';
+            'از کیلومترشمار (${PersianFormat.number(widget.currentKm)}) بیشتره';
       } else {
         values[entry.key] = km;
       }
@@ -806,16 +819,16 @@ class _HistoryStepState extends State<_HistoryStep> {
               const _Progress(step: 3),
               const SizedBox(height: 16),
               Text(
-                'آخرین بار کِی عوض شده‌اند؟',
+                'آخرین بار کِی عوضشون کردی؟',
                 style: text.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 6),
               Text(
-                'اگر یادت هست، عدد کیلومترشمار در آن روز را بنویس. '
-                'اگر نه، خالی بگذار تا طبق برنامه‌ی کارخانه حساب کنیم. '
-                'بعداً هم می‌شود ثبت کرد.',
+                'اگه یادته، کیلومترشمار اون روز رو بنویس. '
+                'یادت نیست؟ خالی بذار، طبق برنامه‌ی کارخونه حساب می‌کنیم. '
+                'بعداً هم می‌شه ثبتش کرد.',
                 style: text.bodyMedium?.copyWith(color: BrandColors.muted),
               ),
               const SizedBox(height: 16),
@@ -833,7 +846,7 @@ class _HistoryStepState extends State<_HistoryStep> {
                     decoration: InputDecoration(
                       labelText:
                           catalog.part(item.partId)?.nameFa ?? item.partId,
-                      hintText: 'نمی‌دانم',
+                      hintText: 'نمی‌دونم',
                       suffixText: 'کیلومتر',
                       errorText: _errors[item.partId],
                       errorMaxLines: 2,
@@ -843,14 +856,14 @@ class _HistoryStepState extends State<_HistoryStep> {
               const SizedBox(height: 18),
               FilledButton(
                 onPressed: widget.saving ? null : _finish,
-                child: const Text('تمام'),
+                child: const Text('تموم'),
               ),
               const SizedBox(height: 6),
               TextButton(
                 onPressed: widget.saving
                     ? null
                     : () => widget.onFinish(const {}),
-                child: const Text('هیچ‌کدام یادم نیست، رد شو'),
+                child: const Text('هیچ‌کدوم یادم نیست، رد شو'),
               ),
             ],
           ),

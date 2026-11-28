@@ -10,31 +10,39 @@ class GarageData {
     this.onboarded = false,
     this.vehicles = const [],
     this.records = const [],
+    this.activeVehicleId,
   });
 
   final bool onboarded;
   final List<Vehicle> vehicles;
   final List<ServiceRecord> records;
 
+  /// The car the screens show. Null or unknown means the first car.
+  final String? activeVehicleId;
+
   GarageData copyWith({
     bool? onboarded,
     List<Vehicle>? vehicles,
     List<ServiceRecord>? records,
+    String? activeVehicleId,
   }) => GarageData(
     onboarded: onboarded ?? this.onboarded,
     vehicles: vehicles ?? this.vehicles,
     records: records ?? this.records,
+    activeVehicleId: activeVehicleId ?? this.activeVehicleId,
   );
 
   Map<String, Object?> toJson() => {
     'version': GarageRepository.dataVersion,
     'onboarded': onboarded,
+    'activeVehicleId': activeVehicleId,
     'vehicles': [for (final v in vehicles) v.toJson()],
     'records': [for (final r in records) r.toJson()],
   };
 
   factory GarageData.fromJson(Map<String, Object?> json) => GarageData(
     onboarded: json['onboarded'] as bool? ?? false,
+    activeVehicleId: json['activeVehicleId'] as String?,
     vehicles: [
       for (final raw in json['vehicles'] as List<Object?>? ?? const [])
         Vehicle.fromJson(raw as Map<String, Object?>),

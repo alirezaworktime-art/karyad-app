@@ -90,10 +90,10 @@ abstract final class PersianFormat {
     return '${number((days / 30).round())} ماه';
   }
 
-  /// Relative day count for reminders: "امروز", "۳ روز دیگر", "۵ روز پیش".
+  /// Relative day count for reminders: "امروز", "۳ روز دیگه", "۵ روز پیش".
   static String daysFromNow(int days) {
     if (days == 0) return 'امروز';
-    if (days > 0) return '${number(days)} روز دیگر';
+    if (days > 0) return '${number(days)} روز دیگه';
     return '${number(-days)} روز پیش';
   }
 }

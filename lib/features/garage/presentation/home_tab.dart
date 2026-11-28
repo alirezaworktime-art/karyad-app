@@ -11,6 +11,7 @@ import '../domain/vehicle.dart';
 import 'document_actions.dart';
 import 'emergency_sheet.dart';
 import 'service_sheets.dart';
+import 'vehicle_switcher.dart';
 import 'widgets/car_illustration.dart';
 
 /// What the user opens the app for: when the next service is, in km and
@@ -25,7 +26,7 @@ class HomeTab extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
-        final vehicle = controller.primaryVehicle;
+        final vehicle = controller.activeVehicle;
         if (vehicle == null) return const SizedBox.shrink();
         final catalog = controller.catalog;
         final group = catalog.groupForModel(vehicle.modelId);
@@ -45,11 +46,15 @@ class HomeTab extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      'کاریاد',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: BrandColors.violet,
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: _VehicleSwitcherButton(
+                        name: controller.displayName(vehicle),
+                        count: controller.vehicles.length,
+                        // With one car there is nothing to switch to yet.
+                        onPressed: () => controller.vehicles.length > 1
+                            ? showVehicleSheet(context, controller)
+                            : openAddVehicle(context, controller),
                       ),
                     ),
                   ),
@@ -61,7 +66,7 @@ class HomeTab extends StatelessWidget {
               const SizedBox(height: 8),
               _CarCard(
                 vehicle: vehicle,
-                modelName: catalog.model(vehicle.modelId)?.nameFa ?? '',
+                name: controller.displayName(vehicle),
                 now: controller.now,
                 onNewReading: () => showReadingSheet(
                   context,
@@ -118,7 +123,7 @@ class HomeTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'اگر یکی را قبلاً عوض کرده‌ای، رویش بزن تا ثبت شود.',
+                  'یکی رو قبلاً عوض کردی؟ روش بزن ثبتش کنیم.',
                   style: Theme.of(context).textTheme.bodySmall
                       ?.copyWith(color: BrandColors.muted),
                 ),
@@ -203,6 +208,38 @@ String targetText(MaintenanceDue due, {bool short = false}) {
   return 'تا ${PersianFormat.monthYear(date!)}';
 }
 
+/// Shows which car is on screen; opens the list to switch or add one.
+class _VehicleSwitcherButton extends StatelessWidget {
+  const _VehicleSwitcherButton({
+    required this.name,
+    required this.count,
+    required this.onPressed,
+  });
+
+  final String name;
+  final int count;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      key: const Key('vehicle-switcher'),
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: BrandColors.violet,
+        textStyle: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+      ),
+      icon: Icon(count > 1 ? Icons.swap_horiz : Icons.add_circle_outline),
+      label: Text(
+        count > 1 ? '$name · ${PersianFormat.number(count)} ماشین' : 'افزودن ماشین',
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+}
+
 class _SosButton extends StatelessWidget {
   const _SosButton({required this.onPressed});
 
@@ -230,13 +267,13 @@ class _SosButton extends StatelessWidget {
 class _CarCard extends StatelessWidget {
   const _CarCard({
     required this.vehicle,
-    required this.modelName,
+    required this.name,
     required this.now,
     required this.onNewReading,
   });
 
   final Vehicle vehicle;
-  final String modelName;
+  final String name;
   final DateTime now;
   final VoidCallback onNewReading;
 
@@ -258,11 +295,11 @@ class _CarCard extends StatelessWidget {
             color: Color(vehicle.color.argb),
             taxiSign: vehicle.usage == VehicleUsage.work,
             width: 250,
-            semanticLabel: '$modelName ${vehicle.color.nameFa}',
+            semanticLabel: '$name ${vehicle.color.nameFa}',
           ),
           const SizedBox(height: 4),
           Text(
-            vehicle.nickname ?? modelName,
+            name,
             style: text.titleLarge?.copyWith(fontWeight: FontWeight.w800),
           ),
           Wrap(
@@ -318,11 +355,11 @@ class _ReadingPrompt extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'کیلومترشمار الان چند است؟',
+                  'کیلومترشمار الان چنده؟',
                   style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 Text(
-                  'یک عدد بنویس تا یادآورها دقیق بمانند.',
+                  'یه عدد بنویس که یادآورها دقیق بمونن.',
                   style: text.bodySmall?.copyWith(color: BrandColors.amberText),
                 ),
               ],
@@ -366,7 +403,7 @@ class _NextVisitCard extends StatelessWidget {
     final status = visit.status;
     final (heading, headingColor) = switch (status) {
       DueStatus.overdue => ('وقت سرویس رسیده', BrandColors.danger),
-      DueStatus.dueSoon => ('سرویس نزدیک است', BrandColors.amberText),
+      DueStatus.dueSoon => ('سرویس نزدیکه', BrandColors.amberText),
       DueStatus.ok => ('سرویس بعدی', BrandColors.violet),
     };
     final km = visit.dueKm;
@@ -435,7 +472,7 @@ class _NextVisitCard extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const TextSpan(text: ' — هر کدام زودتر'),
+                    const TextSpan(text: ' — هر کدوم زودتر'),
                   ],
                 ),
               ),
@@ -471,7 +508,7 @@ class _NextVisitCard extends StatelessWidget {
               width: double.infinity,
               child: FilledButton(
                 onPressed: onDone,
-                child: const Text('سرویس را انجام دادم'),
+                child: const Text('سرویس رو انجام دادم'),
               ),
             ),
           ],
@@ -490,14 +527,14 @@ class _NextVisitCard extends StatelessWidget {
       return '${PersianFormat.km(-kmLeft)} از موعد گذشته';
     }
     if (date != null && MaintenancePlanner.daysBetween(now, date) <= 0) {
-      return 'تاریخش گذشته؛ حتی اگر کم رفته‌ای، وقت سرویس است.';
+      return 'تاریخش گذشته؛ حتی اگه کم رفتی، وقت سرویسه.';
     }
     final used = odometerKm - lead.periodStartKm;
     final base =
         '${PersianFormat.number(used < 0 ? 0 : used)} از '
         '${PersianFormat.km(lead.periodKm!)} این دوره طی شده';
     if (kmLeft != null && pace != null && pace > 0) {
-      return '$base · حدود ${PersianFormat.roughDuration((kmLeft / pace).round())} دیگر';
+      return '$base · حدود ${PersianFormat.roughDuration((kmLeft / pace).round())} دیگه';
     }
     return base;
   }
@@ -564,10 +601,10 @@ class _DocumentAlert extends StatelessWidget {
     final expired = status.expired;
     final foreground = expired ? BrandColors.danger : BrandColors.amberText;
     final title = expired
-        ? '${status.document.nameFa} تمام شده'
+        ? '${status.document.nameFa} تموم شده'
         : status.daysLeft == 0
-        ? '${status.document.nameFa} امروز تمام می‌شود'
-        : '${status.document.nameFa} ${PersianFormat.daysFromNow(status.daysLeft)} تمام می‌شود';
+        ? '${status.document.nameFa} امروز تموم می‌شه'
+        : '${status.document.nameFa} ${PersianFormat.daysFromNow(status.daysLeft)} تموم می‌شه';
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
       decoration: BoxDecoration(
@@ -623,11 +660,11 @@ class _DocumentRow extends StatelessWidget {
       title: Text(document.nameFa),
       subtitle: Text(
         status == null
-            ? 'تاریخ پایانش را ثبت کن تا یادت بیندازیم'
+            ? 'تاریخ تموم شدنش رو بزن تا یادت بندازیم'
             : status.expired
-            ? 'تمام شده · ${PersianFormat.date(status.expiry)}'
+            ? 'تموم شده · ${PersianFormat.date(status.expiry)}'
             : 'تا ${PersianFormat.date(status.expiry)} · '
-                  '${PersianFormat.roughDuration(status.daysLeft)} مانده',
+                  '${PersianFormat.roughDuration(status.daysLeft)} مونده',
       ),
       trailing: Icon(
         status == null ? Icons.add : Icons.edit_outlined,

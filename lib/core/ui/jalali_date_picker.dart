@@ -108,7 +108,7 @@ class _JalaliDateDialogState extends State<_JalaliDateDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('انصراف'),
+          child: const Text('بی‌خیال'),
         ),
         FilledButton(
           onPressed: () =>

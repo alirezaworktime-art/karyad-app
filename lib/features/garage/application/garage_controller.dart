@@ -61,8 +61,59 @@ class GarageController extends ChangeNotifier {
   bool get isLoaded => _loaded;
   bool get isOnboarded => _data.onboarded && _data.vehicles.isNotEmpty;
   List<Vehicle> get vehicles => _data.vehicles;
-  Vehicle? get primaryVehicle =>
-      _data.vehicles.isEmpty ? null : _data.vehicles.first;
+
+  /// The car every screen shows; the user switches it from home.
+  Vehicle? get activeVehicle {
+    final vehicles = _data.vehicles;
+    if (vehicles.isEmpty) return null;
+    return vehicles.where((v) => v.id == _data.activeVehicleId).firstOrNull ??
+        vehicles.first;
+  }
+
+  /// Name to show for a car: its nickname, else the model name.
+  String displayName(Vehicle vehicle) =>
+      vehicle.nickname ?? catalog.model(vehicle.modelId)?.nameFa ?? '';
+
+  Future<void> selectVehicle(String vehicleId) async {
+    if (activeVehicle?.id == vehicleId) return;
+    _vehicle(vehicleId);
+    await _commit(_data.copyWith(activeVehicleId: vehicleId));
+  }
+
+  /// Gives a car its own name (to tell two of the same model apart), or
+  /// clears it with null or a blank name.
+  Future<void> renameVehicle(String vehicleId, String? nickname) async {
+    final name = nickname?.trim();
+    final updated = _vehicle(
+      vehicleId,
+    ).copyWith(nickname: name == null || name.isEmpty ? null : name);
+    await _commit(_data.copyWith(vehicles: _replace(updated)));
+  }
+
+  /// Deletes one car and its history. Deleting the last car starts over.
+  Future<void> removeVehicle(String vehicleId) async {
+    final remaining = [
+      for (final v in _data.vehicles)
+        if (v.id != vehicleId) v,
+    ];
+    if (remaining.isEmpty) {
+      await _commit(const GarageData());
+      return;
+    }
+    await _commit(
+      GarageData(
+        onboarded: true,
+        vehicles: remaining,
+        records: [
+          for (final r in _data.records)
+            if (r.vehicleId != vehicleId) r,
+        ],
+        activeVehicleId: _data.activeVehicleId == vehicleId
+            ? remaining.first.id
+            : _data.activeVehicleId,
+      ),
+    );
+  }
   DateTime get now => _clock();
 
   Future<void> load() async {
@@ -191,6 +242,7 @@ class GarageController extends ChangeNotifier {
         onboarded: true,
         vehicles: [..._data.vehicles, vehicle],
         records: [..._data.records, ...seeded],
+        activeVehicleId: vehicle.id,
       ),
     );
     return vehicle;
@@ -360,8 +412,6 @@ class GarageController extends ChangeNotifier {
     );
   }
 
-  /// Wipes everything on this device.
-  Future<void> resetAll() => _commit(const GarageData());
 
   MaintenancePlan? planFor(Vehicle vehicle) {
     final group = catalog.groupForModel(vehicle.modelId);

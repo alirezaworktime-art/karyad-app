@@ -39,7 +39,7 @@ void main() {
     await restarted.load();
 
     expect(restarted.isOnboarded, isTrue);
-    final saved = restarted.primaryVehicle!;
+    final saved = restarted.activeVehicle!;
     expect(saved.modelId, 'dena-plus');
     expect(saved.color, CarColor.silver);
     expect(saved.lastReading.km, 63000);
@@ -56,13 +56,13 @@ void main() {
       usage: VehicleUsage.personal,
       currentKm: 30000,
     );
-    await first.addReading(first.primaryVehicle!.id, 30500);
+    await first.addReading(first.activeVehicle!.id, 30500);
     await prefs.setString('garage.v1', '{not json');
 
     final restarted = _controller(prefs);
     await restarted.load();
     expect(restarted.isOnboarded, isTrue);
-    expect(restarted.primaryVehicle!.lastReading.km, 30000);
+    expect(restarted.activeVehicle!.lastReading.km, 30000);
   });
 
   test('an unreadable document never replaces the good backup', () async {
@@ -74,20 +74,20 @@ void main() {
       usage: VehicleUsage.personal,
       currentKm: 30000,
     );
-    await first.addReading(first.primaryVehicle!.id, 30500);
+    await first.addReading(first.activeVehicle!.id, 30500);
     await prefs.setString('garage.v1', '{not json');
 
     // Load falls back to the backup, then a save must not copy the broken
     // document over it.
     final second = _controller(prefs);
     await second.load();
-    await second.addReading(second.primaryVehicle!.id, 31000);
+    await second.addReading(second.activeVehicle!.id, 31000);
     expect(prefs.getString('garage.v1.unreadable'), '{not json');
     expect(prefs.getString('garage.v1.previous'), isNot('{not json'));
 
     final third = _controller(prefs);
     await third.load();
-    expect(third.primaryVehicle!.lastReading.km, 31000);
+    expect(third.activeVehicle!.lastReading.km, 31000);
   });
 
   test('both copies unreadable starts fresh instead of crashing', () async {
