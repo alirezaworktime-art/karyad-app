@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../catalog/domain/body_type.dart';
 import '../../catalog/domain/catalog.dart';
 import '../data/garage_repository.dart';
 import '../domain/maintenance_planner.dart';
@@ -189,12 +190,19 @@ class GarageController extends ChangeNotifier {
     CarColor color = CarColor.white,
     int? nextOilChangeKm,
     Transmission transmission = Transmission.manual,
+    String? nickname,
+    BodyType? bodyType,
+    int? oilIntervalKm,
     Map<String, int> lastReplacedKm = const {},
   }) async {
     final now = _clock();
+    final name = nickname?.trim();
     final vehicle = Vehicle(
       id: _newId('car'),
       modelId: modelId,
+      nickname: name == null || name.isEmpty ? null : name,
+      bodyType: bodyType,
+      oilIntervalKm: oilIntervalKm,
       usage: usage,
       oilType: oilType,
       color: color,

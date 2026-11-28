@@ -39,6 +39,9 @@ class _CarDetails {
     required this.color,
     required this.work,
     required this.transmission,
+    this.name,
+    this.bodyType,
+    this.oilIntervalKm,
   });
 
   final int currentKm;
@@ -46,6 +49,11 @@ class _CarDetails {
   final CarColor color;
   final bool work;
   final Transmission transmission;
+
+  /// Only for a car outside the catalog.
+  final String? name;
+  final BodyType? bodyType;
+  final int? oilIntervalKm;
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
@@ -64,6 +72,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       color: details.color,
       nextOilChangeKm: details.nextOilChangeKm,
       transmission: details.transmission,
+      nickname: details.name,
+      bodyType: details.bodyType,
+      oilIntervalKm: details.oilIntervalKm,
       lastReplacedKm: lastReplacedKm,
     );
     widget.onExit?.call();
@@ -89,10 +100,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         modelId: _modelId!,
         initial: _details,
         onBack: () => setState(() => _step = 1),
-        onNext: (details) => setState(() {
+        onNext: (details) {
           _details = details;
-          _step = 3;
-        }),
+          // Nothing to ask about past replacements? Then we're done.
+          final askHistory = widget.controller
+              .startingHistoryItems(
+                _modelId!,
+                transmission: details.transmission,
+              )
+              .isNotEmpty;
+          if (askHistory) {
+            setState(() => _step = 3);
+          } else {
+            _finish(const {});
+          }
+        },
       ),
       _ => _HistoryStep(
         controller: widget.controller,
@@ -374,7 +396,8 @@ class _ModelStepState extends State<_ModelStep> {
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 32),
                   child: Text(
-                    'این مدل هنوز تو فهرست نیست. به‌زودی اضافه‌ش می‌کنیم.',
+                    'این مدل رو هنوز نداریم. پایین «ماشینم تو فهرست نیست» رو '
+                    'بزن؛ روغن و بیمه و معاینه‌ی فنیش رو یادت میندازیم.',
                     textAlign: TextAlign.center,
                     style: text.bodyMedium?.copyWith(color: BrandColors.muted),
                   ),
@@ -395,6 +418,13 @@ class _ModelStepState extends State<_ModelStep> {
                     ],
                   ),
                 ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                key: const Key('other-model'),
+                onPressed: () => widget.onPick(Catalog.otherModelId),
+                icon: const Icon(Icons.help_outline),
+                label: const Text('ماشینم تو فهرست نیست'),
+              ),
             ],
           ),
         ),
@@ -467,8 +497,15 @@ class _DetailsStepState extends State<_DetailsStep> {
   bool _work = false;
   CarColor _color = CarColor.white;
   Transmission _transmission = Transmission.manual;
+  final _name = TextEditingController();
+  final _oilInterval = TextEditingController();
+  BodyType _bodyType = BodyType.sedan;
   String? _kmError;
   String? _stickerError;
+  String? _nameError;
+  String? _oilIntervalError;
+
+  bool get _isOther => widget.modelId == Catalog.otherModelId;
 
   @override
   void initState() {
@@ -485,12 +522,18 @@ class _DetailsStepState extends State<_DetailsStep> {
     _color = initial.color;
     _work = initial.work;
     _transmission = initial.transmission;
+    _name.text = initial.name ?? '';
+    _bodyType = initial.bodyType ?? BodyType.sedan;
+    final interval = initial.oilIntervalKm;
+    if (interval != null) _oilInterval.text = PersianFormat.number(interval);
   }
 
   @override
   void dispose() {
     _km.dispose();
     _sticker.dispose();
+    _name.dispose();
+    _oilInterval.dispose();
     super.dispose();
   }
 
@@ -513,10 +556,29 @@ class _DetailsStepState extends State<_DetailsStep> {
           'این عدد بیش از ${PersianFormat.number(GarageController.maxOilIntervalKm)} '
           'کیلومتر جلوتر از کیلومترشماره؛ یه بار دیگه برچسب رو نگاه کن.';
     }
-    if (kmError != null || stickerError != null) {
+    String? nameError;
+    String? oilIntervalError;
+    final oilInterval = PersianFormat.parseInt(_oilInterval.text);
+    if (_isOther) {
+      if (_name.text.trim().isEmpty) nameError = 'اسم ماشینت رو بنویس';
+      if (oilInterval == null ||
+          oilInterval < GarageController.minOilIntervalKm ||
+          oilInterval > GarageController.maxOilIntervalKm) {
+        oilIntervalError =
+            'یه عدد بین ${PersianFormat.number(GarageController.minOilIntervalKm)} '
+            'و ${PersianFormat.number(GarageController.maxOilIntervalKm)} بنویس؛ '
+            'از تعویض‌روغنی یا دفترچه‌ی ماشین بپرس';
+      }
+    }
+    if (kmError != null ||
+        stickerError != null ||
+        nameError != null ||
+        oilIntervalError != null) {
       setState(() {
         _kmError = kmError;
         _stickerError = stickerError;
+        _nameError = nameError;
+        _oilIntervalError = oilIntervalError;
       });
       return;
     }
@@ -527,6 +589,9 @@ class _DetailsStepState extends State<_DetailsStep> {
         color: _color,
         work: _work,
         transmission: _transmission,
+        name: _isOther ? _name.text.trim() : null,
+        bodyType: _isOther ? _bodyType : null,
+        oilIntervalKm: _isOther ? oilInterval : null,
       ),
     );
   }
@@ -561,14 +626,20 @@ class _DetailsStepState extends State<_DetailsStep> {
                 child: Column(
                   children: [
                     CarIllustration(
-                      bodyType: BodyTypes.of(widget.modelId),
+                      bodyType: _isOther
+                          ? _bodyType
+                          : BodyTypes.of(widget.modelId),
                       color: Color(_color.argb),
                       taxiSign: _work,
                       width: 220,
                       semanticLabel: '${model?.nameFa ?? ''} ${_color.nameFa}',
                     ),
                     Text(
-                      model?.nameFa ?? '',
+                      _isOther
+                          ? (_name.text.trim().isEmpty
+                                ? 'ماشین تو'
+                                : _name.text.trim())
+                          : model?.nameFa ?? '',
                       style: text.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -576,6 +647,60 @@ class _DetailsStepState extends State<_DetailsStep> {
                   ],
                 ),
               ),
+              if (_isOther) ...[
+                const SizedBox(height: 20),
+                Text('اسم ماشینت چیه؟', style: label),
+                const SizedBox(height: 8),
+                TextField(
+                  key: const Key('other-name'),
+                  controller: _name,
+                  maxLength: 24,
+                  textInputAction: TextInputAction.next,
+                  onChanged: (_) => setState(() => _nameError = null),
+                  decoration: InputDecoration(
+                    hintText: 'مثلاً ام‌وی‌ام X22',
+                    errorText: _nameError,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text('شکلش', style: label),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final b in BodyType.values)
+                      ChoiceChip(
+                        label: Text(switch (b) {
+                          BodyType.sedan => 'سواری',
+                          BodyType.hatchback => 'هاچ‌بک',
+                          BodyType.suv => 'شاسی‌بلند',
+                          BodyType.pickup => 'وانت',
+                        }),
+                        selected: b == _bodyType,
+                        onSelected: (_) => setState(() => _bodyType = b),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Text('هر چند کیلومتر روغن عوض می‌کنی؟', style: label),
+                const SizedBox(height: 8),
+                TextField(
+                  key: const Key('other-oil-interval'),
+                  controller: _oilInterval,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => setState(() => _oilIntervalError = null),
+                  decoration: InputDecoration(
+                    hintText: 'مثلاً ۵٬۰۰۰',
+                    suffixText: 'کیلومتر',
+                    errorText: _oilIntervalError,
+                    errorMaxLines: 3,
+                    helperText:
+                        'برای این ماشین دفترچه‌ی کارخونه نداریم؛ با همین عدد حساب می‌کنیم.',
+                    helperMaxLines: 2,
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
               Text('کیلومترشمار الان چند نشون می‌ده؟', style: label),
               const SizedBox(height: 8),

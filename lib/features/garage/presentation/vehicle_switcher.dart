@@ -2,7 +2,6 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../../app/theme.dart';
 import '../../../core/format/persian_format.dart';
-import '../../catalog/domain/body_type.dart';
 import '../application/garage_controller.dart';
 import '../domain/vehicle.dart';
 import 'onboarding_screen.dart';
@@ -131,7 +130,7 @@ class _VehicleTile extends StatelessWidget {
           child: Row(
             children: [
               CarIllustration(
-                bodyType: BodyTypes.of(vehicle.modelId),
+                bodyType: vehicle.shape,
                 color: Color(vehicle.color.argb),
                 taxiSign: vehicle.usage == VehicleUsage.work,
                 width: 84,

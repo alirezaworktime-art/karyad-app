@@ -3,7 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../app/theme.dart';
 import '../../../core/format/persian_format.dart';
 import '../../../core/ui/responsive_body.dart';
-import '../../catalog/domain/body_type.dart';
+import '../../catalog/domain/catalog.dart';
 import '../application/garage_controller.dart';
 import 'document_actions.dart';
 import 'vehicle_switcher.dart';
@@ -47,7 +47,7 @@ class SettingsTab extends StatelessWidget {
                 child: Column(
                   children: [
                     CarIllustration(
-                      bodyType: BodyTypes.of(vehicle.modelId),
+                      bodyType: vehicle.shape,
                       color: Color(vehicle.color.argb),
                       taxiSign: vehicle.usage == VehicleUsage.work,
                       width: 220,
@@ -290,6 +290,21 @@ class _OilSettings extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final custom = vehicle.oilIntervalKm;
+    // No factory schedule to fall back to: the user's number is the only one.
+    if (vehicle.modelId == Catalog.otherModelId) {
+      return Card(
+        child: ListTile(
+          key: const Key('other-oil-interval-tile'),
+          title: Text(
+            'هر ${PersianFormat.km(custom ?? Catalog.otherGroup.items.first.normal!.km!)}',
+            style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          subtitle: const Text('عددی که خودت دادی؛ هر وقت خواستی عوضش کن'),
+          trailing: const Icon(Icons.edit_outlined, color: BrandColors.violet),
+          onTap: () => _editInterval(context),
+        ),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

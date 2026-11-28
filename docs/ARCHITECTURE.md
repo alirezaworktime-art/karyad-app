@@ -87,6 +87,14 @@ user can check against the dashboard and the calendar.
 - **Status.** Overdue when km or date passed; «نزدیک» within 1,000 km or
   30 days.
 
+## Cars outside the catalog
+
+`Catalog.otherModelId` («ماشینم تو فهرست نیست») is a built-in group with
+only the engine oil. Such a car is added with a name, a body shape and the
+user's own oil interval (required, since there is no factory figure);
+documents work as for any car. Adding real brands later only means new
+catalog groups.
+
 ## Several cars
 
 `GarageData.activeVehicleId` names the car every screen shows. Adding a car

@@ -3,7 +3,6 @@ import 'package:material_ui/material_ui.dart';
 import '../../../app/theme.dart';
 import '../../../core/format/persian_format.dart';
 import '../../../core/ui/responsive_body.dart';
-import '../../catalog/domain/body_type.dart';
 import '../../catalog/domain/catalog.dart';
 import '../application/garage_controller.dart';
 import '../domain/maintenance_planner.dart';
@@ -292,7 +291,7 @@ class _CarCard extends StatelessWidget {
       child: Column(
         children: [
           CarIllustration(
-            bodyType: BodyTypes.of(vehicle.modelId),
+            bodyType: vehicle.shape,
             color: Color(vehicle.color.argb),
             taxiSign: vehicle.usage == VehicleUsage.work,
             width: 250,

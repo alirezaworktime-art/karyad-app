@@ -1,3 +1,5 @@
+import '../../catalog/domain/body_type.dart';
+
 /// How the car is used. Work use (taxi, ride-hailing, delivery) puts it on
 /// the manufacturer's severe-conditions schedule.
 enum VehicleUsage { personal, work }
@@ -95,6 +97,7 @@ class Vehicle {
     this.severeConditions = false,
     this.oilIntervalKm,
     this.transmission = Transmission.manual,
+    this.bodyType,
     Map<VehicleDocument, DateTime> documentExpiry = const {},
   }) : assert(readings.isNotEmpty, 'a vehicle starts with one reading'),
        documentExpiry = Map.unmodifiable(documentExpiry),
@@ -118,6 +121,12 @@ class Vehicle {
   /// Most Iranian cars are manual; data saved before this field existed
   /// loads as manual and can be changed in settings.
   final Transmission transmission;
+
+  /// Set for cars outside the catalog, whose model gives no body shape.
+  final BodyType? bodyType;
+
+  /// The shape to draw: the user's choice, else the model's.
+  BodyType get shape => bodyType ?? BodyTypes.of(modelId);
 
   /// Every odometer value the user entered, oldest first. The first one is
   /// the day the car was added.
@@ -158,6 +167,7 @@ class Vehicle {
     List<OdometerReading>? readings,
     bool? severeConditions,
     Transmission? transmission,
+    BodyType? bodyType,
     Object? oilIntervalKm = _keep,
     Map<VehicleDocument, DateTime>? documentExpiry,
   }) => Vehicle(
@@ -170,6 +180,7 @@ class Vehicle {
     readings: readings ?? this.readings,
     severeConditions: severeConditions ?? this.severeConditions,
     transmission: transmission ?? this.transmission,
+    bodyType: bodyType ?? this.bodyType,
     oilIntervalKm: identical(oilIntervalKm, _keep)
         ? this.oilIntervalKm
         : oilIntervalKm as int?,
@@ -187,6 +198,7 @@ class Vehicle {
     'severeConditions': severeConditions,
     'oilIntervalKm': oilIntervalKm,
     'transmission': transmission.name,
+    'bodyType': bodyType?.name,
     'documentExpiry': {
       for (final e in documentExpiry.entries)
         e.key.name: e.value.toIso8601String(),
@@ -211,6 +223,7 @@ class Vehicle {
           ];
     final colorName = json['color'] as String?;
     final transmissionName = json['transmission'] as String?;
+    final bodyTypeName = json['bodyType'] as String?;
     final rawDocuments =
         json['documentExpiry'] as Map<String, Object?>? ?? const {};
     return Vehicle(
@@ -230,6 +243,7 @@ class Vehicle {
               .where((t) => t.name == transmissionName)
               .firstOrNull ??
           Transmission.manual,
+      bodyType: BodyType.values.where((b) => b.name == bodyTypeName).firstOrNull,
       documentExpiry: {
         for (final e in rawDocuments.entries)
           if (VehicleDocument.values.any((d) => d.name == e.key))

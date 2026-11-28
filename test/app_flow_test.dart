@@ -217,6 +217,36 @@ void main() {
     expect(controller.vehicles.single.modelId, 'dena-plus');
   });
 
+  testWidgets('a car outside the list tracks the oil on its own number', (
+    tester,
+  ) async {
+    final controller = await _pumpApp(tester);
+    await _tap(tester, find.text('شروع کنیم'));
+    await tester.enterText(find.byKey(const Key('model-search')), 'ام وی ام');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('این مدل رو هنوز نداریم'), findsOneWidget);
+    await _tap(tester, find.byKey(const Key('other-model')));
+
+    await tester.enterText(find.byKey(const Key('current-km')), '40000');
+    await _tap(tester, find.text('برچسب ندارم'));
+    await _tap(tester, find.text('ادامه'));
+    expect(find.text('اسم ماشینت رو بنویس'), findsOneWidget);
+    expect(find.textContaining('یه عدد بین'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('other-name')), 'ام‌وی‌ام X22');
+    await tester.enterText(
+      find.byKey(const Key('other-oil-interval')),
+      '۶۰۰۰',
+    );
+    await _tap(tester, find.text('شاسی‌بلند'));
+    // No parts to ask about, so «ادامه» finishes straight away.
+    await _tap(tester, find.text('ادامه'));
+
+    expect(find.text('سرویس بعدی'), findsOneWidget);
+    expect(find.textContaining('۴۲٬۰۰۰', findRichText: true), findsWidgets);
+    expect(controller.activeVehicle!.nickname, 'ام‌وی‌ام X22');
+  });
+
   testWidgets('model search folds Arabic letters and handles no results', (
     tester,
   ) async {

@@ -125,10 +125,41 @@ class Catalog {
   final Map<String, VehicleGroup> _groupsById;
   final Map<String, VehicleModel> _modelsById;
 
+  /// Model id for a car the catalog does not cover. Without a factory
+  /// schedule only the engine oil is tracked, on the interval the user
+  /// gives (the vehicle's own oil interval always applies to it).
+  static const otherModelId = 'other';
+
+  static const otherModel = VehicleModel(
+    id: otherModelId,
+    nameFa: 'ماشین دیگه',
+    groupId: otherModelId,
+  );
+
+  static const otherGroup = VehicleGroup(
+    id: otherModelId,
+    makerId: otherModelId,
+    models: [otherModel],
+    confidence: Confidence.unverified,
+    sourceFa: 'عددی که خودت دادی؛ برای این ماشین دفترچه‌ی کارخونه نداریم',
+    items: [
+      MaintenanceItem(
+        partId: 'engine_oil',
+        action: MaintenanceAction.replace,
+        confidence: Confidence.unverified,
+        // Only a fallback: such cars are always added with their own
+        // oil interval, which replaces this.
+        normal: ServiceInterval(km: 5000),
+      ),
+    ],
+  );
+
   Part? part(String id) => _partsById[id];
   Maker? maker(String id) => _makersById[id];
-  VehicleModel? model(String id) => _modelsById[id];
+  VehicleModel? model(String id) =>
+      _modelsById[id] ?? (id == otherModelId ? otherModel : null);
   VehicleGroup? groupForModel(String modelId) {
+    if (modelId == otherModelId) return otherGroup;
     final model = _modelsById[modelId];
     return model == null ? null : _groupsById[model.groupId];
   }

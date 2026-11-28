@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:karyad/features/catalog/domain/body_type.dart';
+import 'package:karyad/features/catalog/domain/catalog.dart';
 import 'package:karyad/features/garage/application/garage_controller.dart';
 import 'package:karyad/features/garage/data/garage_repository.dart';
 import 'package:karyad/features/garage/domain/vehicle.dart';
@@ -407,6 +409,53 @@ void main() {
       );
       await restarted.load();
       expect(restarted.activeVehicle!.id, second.id);
+    });
+  });
+
+  group('car outside the catalog', () {
+    test('tracks only the oil, on the user\'s interval', () async {
+      final car = await controller.addVehicle(
+        modelId: Catalog.otherModelId,
+        usage: VehicleUsage.personal,
+        currentKm: 40000,
+        nickname: 'ام‌وی‌ام X22',
+        bodyType: BodyType.suv,
+        oilIntervalKm: 6000,
+      );
+      final vehicle = controller.activeVehicle!;
+      expect(controller.displayName(vehicle), 'ام‌وی‌ام X22');
+      expect(vehicle.shape, BodyType.suv);
+      final plan = controller.planFor(vehicle)!;
+      expect(plan.all.map((d) => d.partId), ['engine_oil']);
+      // No history yet: the next multiple of the user's interval.
+      expect(plan.nextVisit!.dueKm, 42000);
+
+      await controller.recordVisit(
+        vehicleId: car.id,
+        km: 41000,
+        partIds: ['engine_oil'],
+      );
+      expect(
+        controller.planFor(controller.activeVehicle!)!.nextVisit!.dueKm,
+        47000,
+      );
+      expect(controller.startingHistoryItems(Catalog.otherModelId), isEmpty);
+      expect(controller.transmissionChoices(Catalog.otherModelId), isEmpty);
+    });
+
+    test('a sticker is the target as given', () async {
+      await controller.addVehicle(
+        modelId: Catalog.otherModelId,
+        usage: VehicleUsage.personal,
+        currentKm: 40000,
+        nickname: 'جک S5',
+        oilIntervalKm: 5000,
+        nextOilChangeKm: 43500,
+      );
+      expect(
+        controller.planFor(controller.activeVehicle!)!.nextVisit!.dueKm,
+        43500,
+      );
     });
   });
 }
