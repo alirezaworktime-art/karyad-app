@@ -164,9 +164,8 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     title,
-    style: Theme.of(
-      context,
-    ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+    style: Theme.of(context).textTheme.titleMedium
+        ?.copyWith(fontWeight: FontWeight.w800),
   );
 }
 
@@ -337,9 +336,7 @@ class _DocumentTile extends StatelessWidget {
       leading: Icon(documentIcon(document), color: BrandColors.violet),
       title: Text(document.nameFa),
       subtitle: Text(
-        expiry == null
-            ? 'ثبت نشده'
-            : 'اعتبار تا ${PersianFormat.date(expiry)}',
+        expiry == null ? 'ثبت نشده' : 'اعتبار تا ${PersianFormat.date(expiry)}',
       ),
       trailing: expiry == null
           ? const Icon(Icons.add, color: BrandColors.violet)

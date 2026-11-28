@@ -287,7 +287,9 @@ class GarageController extends ChangeNotifier {
     var vehicle = _vehicle(vehicleId);
     // The new oil sticker tells us the interval this oil runs for; it then
     // applies to this change and the ones after it.
-    final stickerInterval = nextOilChangeKm == null ? null : nextOilChangeKm - km;
+    final stickerInterval = nextOilChangeKm == null
+        ? null
+        : nextOilChangeKm - km;
     if (partIds.contains(MaintenancePlanner.engineOilPartId) &&
         stickerInterval != null &&
         stickerInterval >= minOilIntervalKm &&

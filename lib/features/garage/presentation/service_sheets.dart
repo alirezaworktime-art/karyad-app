@@ -161,8 +161,7 @@ class _VisitSheetState extends State<_VisitSheet> {
     super.dispose();
   }
 
-  bool get _oilTicked =>
-      _selected.contains(MaintenancePlanner.engineOilPartId);
+  bool get _oilTicked => _selected.contains(MaintenancePlanner.engineOilPartId);
 
   List<String> _allParts() {
     final group = widget.controller.catalog.groupForModel(
@@ -295,7 +294,8 @@ class _VisitSheetState extends State<_VisitSheet> {
               onChanged: (_) => setState(() => _stickerError = null),
               decoration: InputDecoration(
                 labelText: 'عدد برچسب جدید روغن (اختیاری)',
-                hintText: 'مثلاً ${PersianFormat.number(widget.vehicle.lastReading.km + 6000)}',
+                hintText:
+                    'مثلاً ${PersianFormat.number(widget.vehicle.lastReading.km + 6000)}',
                 suffixText: 'کیلومتر',
                 helperText: 'تعویض بعدی دقیقاً همین عدد می‌شود.',
                 helperMaxLines: 2,

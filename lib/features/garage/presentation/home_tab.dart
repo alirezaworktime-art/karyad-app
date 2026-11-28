@@ -141,9 +141,8 @@ class HomeTab extends StatelessWidget {
               const SizedBox(height: 24),
               Text(
                 'بیمه و معاینه‌ی فنی',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 8),
               Card(

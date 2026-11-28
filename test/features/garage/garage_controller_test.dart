@@ -256,10 +256,10 @@ void main() {
         DateTime(2026, 12, 10),
       );
       var vehicle = controller.primaryVehicle!;
-      expect(
-        controller.documentsFor(vehicle).map((d) => d.document),
-        [VehicleDocument.inspection, VehicleDocument.insurance],
-      );
+      expect(controller.documentsFor(vehicle).map((d) => d.document), [
+        VehicleDocument.inspection,
+        VehicleDocument.insurance,
+      ]);
       expect(controller.documentsToRenew(vehicle).single.daysLeft, 13);
 
       now = DateTime(2026, 12, 12);

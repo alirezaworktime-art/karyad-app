@@ -111,9 +111,9 @@ class _JalaliDateDialogState extends State<_JalaliDateDialog> {
           child: const Text('انصراف'),
         ),
         FilledButton(
-          onPressed: () => Navigator.of(
-            context,
-          ).pop(Jalali(_year, _month, _day).toDateTime()),
+          onPressed: () =>
+              Navigator.of(context)
+                  .pop(Jalali(_year, _month, _day).toDateTime()),
           child: const Text('ثبت'),
         ),
       ],
