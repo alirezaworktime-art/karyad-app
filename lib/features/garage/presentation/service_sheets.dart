@@ -316,7 +316,8 @@ class _VisitSheetState extends State<_VisitSheet> {
               onPressed: _pickDate,
               icon: const Icon(Icons.event_outlined, size: 20),
               label: Text(
-                MaintenancePlanner.daysBetween(_date, widget.controller.now) == 0
+                MaintenancePlanner.daysBetween(_date, widget.controller.now) ==
+                        0
                     ? 'امروز · ${PersianFormat.date(_date)}'
                     : PersianFormat.date(_date),
               ),

@@ -225,7 +225,8 @@ class Vehicle {
       readings: readings,
       severeConditions: json['severeConditions'] as bool? ?? false,
       oilIntervalKm: json['oilIntervalKm'] as int?,
-      transmission: Transmission.values
+      transmission:
+          Transmission.values
               .where((t) => t.name == transmissionName)
               .firstOrNull ??
           Transmission.manual,

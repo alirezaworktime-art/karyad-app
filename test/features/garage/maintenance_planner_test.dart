@@ -302,9 +302,15 @@ void main() {
           .map((d) => d.partId)
           .toList();
       expect(parts(Transmission.manual), contains('manual_gearbox_oil'));
-      expect(parts(Transmission.manual), isNot(contains('automatic_gearbox_oil')));
+      expect(
+        parts(Transmission.manual),
+        isNot(contains('automatic_gearbox_oil')),
+      );
       expect(parts(Transmission.automatic), contains('automatic_gearbox_oil'));
-      expect(parts(Transmission.automatic), isNot(contains('manual_gearbox_oil')));
+      expect(
+        parts(Transmission.automatic),
+        isNot(contains('manual_gearbox_oil')),
+      );
     });
 
     test('a sticker target stays put when interval settings change', () {
@@ -345,31 +351,33 @@ void main() {
       expect(visit.lead.kmProgress(63000), closeTo(0.1, 1e-9));
     });
 
-    test('an overdue estimate is not hidden behind a later recorded target',
-        () {
-      // The belt has no history: 36 months from the day the car was added,
-      // so it is overdue by date. The air filter, logged at 71,000, is due
-      // at 81,000 and joins the same visit. The visit must still say 80,000.
-      final now = DateTime(2029, 1, 5);
-      final plan = planner.plan(
-        vehicle: _car(
-          readings: [
-            OdometerReading(km: 78500, date: _added),
-            OdometerReading(km: 79000, date: now),
-          ],
-        ),
-        group: _group,
-        records: [_done('air_filter', 71000, DateTime(2028, 6, 1))],
-        now: now,
-      );
-      final visit = plan.nextVisit!;
-      expect(
-        visit.items.map((d) => d.partId),
-        containsAll(['timing_belt', 'air_filter']),
-      );
-      expect(visit.status, DueStatus.overdue);
-      expect(visit.lead.status, DueStatus.overdue);
-      expect(visit.dueKm, 80000);
-    });
+    test(
+      'an overdue estimate is not hidden behind a later recorded target',
+      () {
+        // The belt has no history: 36 months from the day the car was added,
+        // so it is overdue by date. The air filter, logged at 71,000, is due
+        // at 81,000 and joins the same visit. The visit must still say 80,000.
+        final now = DateTime(2029, 1, 5);
+        final plan = planner.plan(
+          vehicle: _car(
+            readings: [
+              OdometerReading(km: 78500, date: _added),
+              OdometerReading(km: 79000, date: now),
+            ],
+          ),
+          group: _group,
+          records: [_done('air_filter', 71000, DateTime(2028, 6, 1))],
+          now: now,
+        );
+        final visit = plan.nextVisit!;
+        expect(
+          visit.items.map((d) => d.partId),
+          containsAll(['timing_belt', 'air_filter']),
+        );
+        expect(visit.status, DueStatus.overdue);
+        expect(visit.lead.status, DueStatus.overdue);
+        expect(visit.dueKm, 80000);
+      },
+    );
   });
 }

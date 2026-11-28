@@ -444,8 +444,7 @@ class _NextVisitCard extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                for (final d in visit.items)
-                  Chip(label: Text(dueName(d))),
+                for (final d in visit.items) Chip(label: Text(dueName(d))),
               ],
             ),
             if (lead.periodKm != null) ...[
