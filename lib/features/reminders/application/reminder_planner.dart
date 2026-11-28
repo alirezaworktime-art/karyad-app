@@ -59,7 +59,8 @@ class ReminderPlanner {
               title: daysBefore == 0
                   ? '$name امروز سرویس داره'
                   : 'یه هفته تا سرویس $name مونده',
-              body: 'تا $when باید سرویس بشه، هر کدوم از کیلومتر یا تاریخ '
+              body:
+                  'تا $when باید سرویس بشه، هر کدوم از کیلومتر یا تاریخ '
                   'زودتر برسه. تو کاریاد ببین چی‌ها رو باید عوض کنی.',
             ),
           );
@@ -79,7 +80,8 @@ class ReminderPlanner {
                   ? '${document.nameFa} $name امروز تموم می‌شه'
                   : '${document.nameFa} $name '
                         '${PersianFormat.daysFromNow(daysBefore)} تموم می‌شه',
-              body: 'اعتبارش تا $date هست. تمدیدش کردی؟ '
+              body:
+                  'اعتبارش تا $date هست. تمدیدش کردی؟ '
                   'تو کاریاد تاریخ جدید رو بزن.',
             ),
           );

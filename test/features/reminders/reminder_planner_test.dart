@@ -35,23 +35,31 @@ void main() {
     expect(planner.plan(garage), isEmpty);
   });
 
-  test('a service date gives a week-before and an on-the-day reminder', () async {
-    final car = await garage.addVehicle(
-      modelId: 'quick',
-      usage: VehicleUsage.personal,
-      currentKm: 30000,
-    );
-    final reminders = planner.plan(garage);
-    final service = reminders.where((r) => r.key.contains(':service:')).toList();
-    expect(service.map((r) => r.key), ['${car.id}:service:7', '${car.id}:service:0']);
-    final due = garage.planFor(garage.activeVehicle!)!.nextVisit!.dueDate!;
-    expect(service.last.when, DateTime(due.year, due.month, due.day, 10));
-    expect(
-      service.first.when,
-      DateTime(due.year, due.month, due.day - 7, 10),
-    );
-    expect(service.last.title, contains('کوییک'));
-  });
+  test(
+    'a service date gives a week-before and an on-the-day reminder',
+    () async {
+      final car = await garage.addVehicle(
+        modelId: 'quick',
+        usage: VehicleUsage.personal,
+        currentKm: 30000,
+      );
+      final reminders = planner.plan(garage);
+      final service = reminders
+          .where((r) => r.key.contains(':service:'))
+          .toList();
+      expect(service.map((r) => r.key), [
+        '${car.id}:service:7',
+        '${car.id}:service:0',
+      ]);
+      final due = garage.planFor(garage.activeVehicle!)!.nextVisit!.dueDate!;
+      expect(service.last.when, DateTime(due.year, due.month, due.day, 10));
+      expect(
+        service.first.when,
+        DateTime(due.year, due.month, due.day - 7, 10),
+      );
+      expect(service.last.title, contains('کوییک'));
+    },
+  );
 
   test('documents remind a month, a week and the day before', () async {
     final car = await garage.addVehicle(
@@ -64,10 +72,11 @@ void main() {
       VehicleDocument.insurance,
       DateTime(2027, 3, 1),
     );
-    expect(
-      keys().where((k) => k.contains('insurance')),
-      ['${car.id}:insurance:30', '${car.id}:insurance:7', '${car.id}:insurance:0'],
-    );
+    expect(keys().where((k) => k.contains('insurance')), [
+      '${car.id}:insurance:30',
+      '${car.id}:insurance:7',
+      '${car.id}:insurance:0',
+    ]);
   });
 
   test('reminders in the past are dropped', () async {
@@ -82,10 +91,10 @@ void main() {
       VehicleDocument.inspection,
       DateTime(2026, 12, 7),
     );
-    expect(
-      keys().where((k) => k.contains('inspection')),
-      ['${car.id}:inspection:7', '${car.id}:inspection:0'],
-    );
+    expect(keys().where((k) => k.contains('inspection')), [
+      '${car.id}:inspection:7',
+      '${car.id}:inspection:0',
+    ]);
     expect(planner.plan(garage).every((r) => r.when.isAfter(now)), isTrue);
   });
 
