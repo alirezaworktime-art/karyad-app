@@ -11,6 +11,7 @@ class GarageData {
     this.vehicles = const [],
     this.records = const [],
     this.activeVehicleId,
+    this.remindersEnabled = true,
   });
 
   final bool onboarded;
@@ -20,22 +21,28 @@ class GarageData {
   /// The car the screens show. Null or unknown means the first car.
   final String? activeVehicleId;
 
+  /// Whether to show reminders as phone notifications.
+  final bool remindersEnabled;
+
   GarageData copyWith({
     bool? onboarded,
     List<Vehicle>? vehicles,
     List<ServiceRecord>? records,
     String? activeVehicleId,
+    bool? remindersEnabled,
   }) => GarageData(
     onboarded: onboarded ?? this.onboarded,
     vehicles: vehicles ?? this.vehicles,
     records: records ?? this.records,
     activeVehicleId: activeVehicleId ?? this.activeVehicleId,
+    remindersEnabled: remindersEnabled ?? this.remindersEnabled,
   );
 
   Map<String, Object?> toJson() => {
     'version': GarageRepository.dataVersion,
     'onboarded': onboarded,
     'activeVehicleId': activeVehicleId,
+    'remindersEnabled': remindersEnabled,
     'vehicles': [for (final v in vehicles) v.toJson()],
     'records': [for (final r in records) r.toJson()],
   };
@@ -43,6 +50,7 @@ class GarageData {
   factory GarageData.fromJson(Map<String, Object?> json) => GarageData(
     onboarded: json['onboarded'] as bool? ?? false,
     activeVehicleId: json['activeVehicleId'] as String?,
+    remindersEnabled: json['remindersEnabled'] as bool? ?? true,
     vehicles: [
       for (final raw in json['vehicles'] as List<Object?>? ?? const [])
         Vehicle.fromJson(raw as Map<String, Object?>),

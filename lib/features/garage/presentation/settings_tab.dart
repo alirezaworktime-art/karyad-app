@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../app/theme.dart';
@@ -141,6 +142,32 @@ class SettingsTab extends StatelessWidget {
               _SectionTitle('روغن موتور'),
               const SizedBox(height: 10),
               _OilSettings(controller: controller, vehicle: vehicle),
+              const SizedBox(height: 28),
+              _SectionTitle('اعلان‌ها'),
+              const SizedBox(height: 10),
+              Card(
+                child: kIsWeb
+                    ? const ListTile(
+                        leading: Icon(
+                          Icons.notifications_off_outlined,
+                          color: BrandColors.muted,
+                        ),
+                        title: Text('رو سایت اعلان نداریم'),
+                        subtitle: Text(
+                          'برای اینکه به‌موقع یادت بندازیم، اپ اندرویدش رو نصب کن.',
+                        ),
+                      )
+                    : SwitchListTile(
+                        key: const Key('reminders-switch'),
+                        value: controller.remindersEnabled,
+                        onChanged: controller.setRemindersEnabled,
+                        title: const Text('با اعلان یادم بنداز'),
+                        subtitle: const Text(
+                          'یه هفته قبل از سرویس، قبل از تموم شدن بیمه و معاینه، '
+                          'و وقتی مدتیه کیلومترشمار رو نزدی',
+                        ),
+                      ),
+              ),
               const SizedBox(height: 28),
               _SectionTitle('بیمه و معاینه‌ی فنی'),
               const SizedBox(height: 4),

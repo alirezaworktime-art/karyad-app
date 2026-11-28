@@ -95,6 +95,20 @@ user's own oil interval (required, since there is no factory figure);
 documents work as for any car. Adding real brands later only means new
 catalog groups.
 
+## Reminders (notifications)
+
+`features/reminders` turns the garage into phone notifications:
+`ReminderPlanner` (pure) lists them, `ReminderSync` reschedules on every
+change, and `LocalNotificationScheduler` (Android, flutter_local_notifications,
+inexact alarms) shows them. Browsers can't schedule notifications, so the
+web uses a no-op scheduler.
+
+- Service due date: a week before and on the day, at 10:00.
+- Insurance / inspection: 30 days, 7 days and the day before, at 10:00.
+- Odometer: when the last reading is 14 days old (7 for work cars), at
+  19:00, since km targets can only be checked with a fresh reading.
+- At most 48 pending, soonest first; past times are dropped.
+
 ## Several cars
 
 `GarageData.activeVehicleId` names the car every screen shows. Adding a car

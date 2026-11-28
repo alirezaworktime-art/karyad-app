@@ -71,6 +71,11 @@ class GarageController extends ChangeNotifier {
         vehicles.first;
   }
 
+  bool get remindersEnabled => _data.remindersEnabled;
+
+  Future<void> setRemindersEnabled(bool on) =>
+      _commit(_data.copyWith(remindersEnabled: on));
+
   /// Name to show for a car: its nickname, else the model name.
   String displayName(Vehicle vehicle) =>
       vehicle.nickname ?? catalog.model(vehicle.modelId)?.nameFa ?? '';
@@ -111,6 +116,7 @@ class GarageController extends ChangeNotifier {
         activeVehicleId: _data.activeVehicleId == vehicleId
             ? remaining.first.id
             : _data.activeVehicleId,
+        remindersEnabled: _data.remindersEnabled,
       ),
     );
   }
