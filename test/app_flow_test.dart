@@ -180,7 +180,7 @@ void main() {
 
     await _tap(tester, find.text('خانه'));
     expect(find.textContaining('۷۲٬۰۰۰', findRichText: true), findsWidgets);
-    expect(find.text('بیمه‌ی شخص ثالث امروز تمام می‌شود'), findsOneWidget);
+    expect(find.text('بیمه‌ی شخص ثالث امروز تموم می‌شه'), findsOneWidget);
   });
 
   testWidgets('adding a second car and switching between them', (tester) async {
